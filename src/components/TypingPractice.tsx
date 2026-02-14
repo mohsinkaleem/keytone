@@ -11,8 +11,11 @@ import { VirtualKeyboard } from './VirtualKeyboard';
 import { Header } from './Header';
 import { SettingsPanel } from './SettingsPanel';
 import { CompletionScreen } from './CompletionScreen';
+import { UniverseSelector } from './UniverseSelector';
+import { UniverseCreationModal } from './UniverseCreationModal';
 import { useTypingPractice } from '../hooks/useTypingPractice';
 import { useAudio } from '../contexts/useAudio';
+import { useUniverse } from '../contexts/UniverseContext';
 import {
   CATEGORIES,
   getRandomText,
@@ -30,6 +33,7 @@ import {
   type UserSettings,
 } from '../utils/storage';
 import { checkAchievements, type AchievementDefinition } from '../utils/achievements';
+import { BUILT_IN_UNIVERSE_IDS } from '../types/universe';
 
 type Difficulty = 'all' | 'easy' | 'medium' | 'hard';
 
@@ -45,6 +49,13 @@ function pickRandom<T>(items: T[]): T {
 }
 
 export function TypingPractice() {
+  // Universe context
+  const { activeUniverse, currentExcerpts, getRandomExcerpt, getNextExcerpt, createUniverse } = useUniverse();
+  const isGeneralUniverse = activeUniverse.id === BUILT_IN_UNIVERSE_IDS.GENERAL;
+  
+  // Universe UI state
+  const [showUniverseCreation, setShowUniverseCreation] = useState(false);
+
   // User data state
   const [userData, setUserData] = useState(() => getUserData());
   const [unlockedAchievementIds, setUnlockedAchievementIds] = useState<string[]>(
@@ -136,6 +147,26 @@ export function TypingPractice() {
 
   // Get next random text in category/difficulty
   const handleNextText = useCallback(() => {
+    // For non-General universes, use universe excerpts
+    if (!isGeneralUniverse) {
+      const nextExcerpt = activeUniverse.type === 'novel'
+        ? getNextExcerpt(selectedText.id)
+        : getRandomExcerpt(selectedText.id);
+      
+      if (nextExcerpt) {
+        setSelectedText({
+          id: nextExcerpt.id,
+          title: nextExcerpt.title,
+          text: nextExcerpt.text,
+          difficulty: nextExcerpt.difficulty,
+          category: 'quotes' as Category,
+        });
+      }
+      reset();
+      return;
+    }
+
+    // For General universe, use existing category/difficulty logic
     let texts = getTextsByCategory(selectedCategory);
     if (selectedDifficulty !== 'all') {
       texts = texts.filter((t) => t.difficulty === selectedDifficulty);
@@ -150,7 +181,51 @@ export function TypingPractice() {
       : texts[0];
     setSelectedText(newText);
     reset();
-  }, [selectedCategory, selectedDifficulty, selectedText.id, customTextsAsTypingTexts, reset]);
+  }, [selectedCategory, selectedDifficulty, selectedText.id, customTextsAsTypingTexts, reset, isGeneralUniverse, activeUniverse.type, getNextExcerpt, getRandomExcerpt]);
+
+  // Track previous universe for change detection
+  const [prevUniverseId, setPrevUniverseId] = useState(activeUniverse.id);
+
+  // Switch text when universe or excerpts change
+  useEffect(() => {
+    const universeChanged = prevUniverseId !== activeUniverse.id;
+    
+    if (universeChanged) {
+      setPrevUniverseId(activeUniverse.id);
+      
+      if (isGeneralUniverse) {
+        // Switched to General - get a random text
+        setSelectedText(getRandomText('all'));
+        reset();
+      } else if (currentExcerpts.length > 0) {
+        // Switched to another universe with excerpts
+        const excerpt = currentExcerpts[0];
+        setSelectedText({
+          id: excerpt.id,
+          title: excerpt.title,
+          text: excerpt.text,
+          difficulty: excerpt.difficulty,
+          category: 'quotes' as Category,
+        });
+        reset();
+      }
+    } else if (!isGeneralUniverse && currentExcerpts.length > 0) {
+      // Excerpts just loaded for non-General universe
+      const isCurrentTextFromUniverse = currentExcerpts.some(e => e.id === selectedText.id);
+      if (!isCurrentTextFromUniverse) {
+        const excerpt = currentExcerpts[0];
+        setSelectedText({
+          id: excerpt.id,
+          title: excerpt.title,
+          text: excerpt.text,
+          difficulty: excerpt.difficulty,
+          category: 'quotes' as Category,
+        });
+        reset();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUniverse.id, currentExcerpts.length]);
 
   // Handle category change
   const handleCategoryChange = useCallback((category: Category | 'all') => {
@@ -212,6 +287,19 @@ export function TypingPractice() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts if focus is in an input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        // Still allow Escape to close shortcuts/reset if needed?
+        // Actually, better to let the modal handle its own Escape.
+        // But we MUST allow Tab for focus switching in modals.
+        return;
+      }
+
       // Toggle mute with Alt+M
       if (e.altKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
@@ -278,6 +366,20 @@ export function TypingPractice() {
         onToggleSettings={() => setShowSettings(!showSettings)}
       />
 
+      {/* Universe Selector */}
+      <UniverseSelector onCreateNew={() => setShowUniverseCreation(true)} />
+
+      {/* Universe Creation Modal */}
+      {showUniverseCreation && (
+        <UniverseCreationModal
+          onSave={(universe, excerpts) => {
+            createUniverse(universe, excerpts);
+            setShowUniverseCreation(false);
+          }}
+          onClose={() => setShowUniverseCreation(false)}
+        />
+      )}
+
       {/* Settings panel (collapsible) */}
       {showSettings && (
         <SettingsPanel
@@ -296,71 +398,94 @@ export function TypingPractice() {
         />
       )}
 
-      {/* Category and Difficulty tabs */}
-      <div className="px-6 py-1.5 border-b border-gray-800 bg-gray-900/30 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-4 min-w-max">
-          {/* Categories */}
-          <div className="flex bg-gray-800/40 p-1 rounded-xl">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => handleCategoryChange(cat.value)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === cat.value
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-            {userData.customTexts.length > 0 && (
-              <button
-                onClick={() => {
-                  setSelectedCategory('quotes');
-                  const customTexts = customTextsAsTypingTexts();
-                  if (customTexts.length > 0) {
-                    setSelectedText(customTexts[0]);
-                    reset();
-                  }
-                }}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === 'quotes' && userData.customTexts.some(ct => ct.id === selectedText.id)
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-purple-400 hover:text-purple-300'
-                }`}
-              >
-                Custom ({userData.customTexts.length})
-              </button>
-            )}
-          </div>
+      {/* Category and Difficulty tabs (only for General universe) */}
+      {isGeneralUniverse && (
+        <div className="px-6 py-1.5 border-b border-gray-800 bg-gray-900/30 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-4 min-w-max">
+            {/* Categories */}
+            <div className="flex bg-gray-800/40 p-1 rounded-xl">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => handleCategoryChange(cat.value)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    selectedCategory === cat.value
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+              {userData.customTexts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedCategory('quotes');
+                    const customTexts = customTextsAsTypingTexts();
+                    if (customTexts.length > 0) {
+                      setSelectedText(customTexts[0]);
+                      reset();
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    selectedCategory === 'quotes' && userData.customTexts.some(ct => ct.id === selectedText.id)
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-purple-400 hover:text-purple-300'
+                  }`}
+                >
+                  Custom ({userData.customTexts.length})
+                </button>
+              )}
+            </div>
 
-          <div className="h-4 w-px bg-gray-700 mx-1" />
+            <div className="h-4 w-px bg-gray-700 mx-1" />
 
-          {/* Difficulty */}
-          <div className="flex bg-gray-800/40 p-1 rounded-xl">
-            {DIFFICULTIES.map((diff) => (
-              <button
-                key={diff.value}
-                onClick={() => handleDifficultyChange(diff.value)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  selectedDifficulty === diff.value
-                    ? diff.value === 'easy'
-                      ? 'bg-green-600 text-white shadow-sm'
-                      : diff.value === 'medium'
-                      ? 'bg-yellow-600 text-white shadow-sm'
-                      : diff.value === 'hard'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'bg-gray-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {diff.label}
-              </button>
-            ))}
+            {/* Difficulty */}
+            <div className="flex bg-gray-800/40 p-1 rounded-xl">
+              {DIFFICULTIES.map((diff) => (
+                <button
+                  key={diff.value}
+                  onClick={() => handleDifficultyChange(diff.value)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    selectedDifficulty === diff.value
+                      ? diff.value === 'easy'
+                        ? 'bg-green-600 text-white shadow-sm'
+                        : diff.value === 'medium'
+                        ? 'bg-yellow-600 text-white shadow-sm'
+                        : diff.value === 'hard'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'bg-gray-600 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {diff.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Universe excerpt info (for non-General universes) */}
+      {!isGeneralUniverse && currentExcerpts.length > 0 && (
+        <div className="px-6 py-1.5 border-b border-gray-800 bg-gray-900/30">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-gray-400">
+              {activeUniverse.icon} {activeUniverse.name}
+            </span>
+            <span className="text-gray-600">•</span>
+            <span className="text-gray-500">
+              {currentExcerpts.findIndex(e => e.id === selectedText.id) + 1} / {currentExcerpts.length} excerpts
+            </span>
+            {activeUniverse.type === 'novel' && (
+              <>
+                <span className="text-gray-600">•</span>
+                <span className="text-indigo-400 text-xs">Sequential mode</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Audio Visualizer */}
       {showVisualizer && (

@@ -401,6 +401,16 @@ export function useTypingPractice({
   // Keyboard event listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept typing if focus is in an input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
       if (stats.isComplete) return;
       if (!isStarted && !autoStartRef.current) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;

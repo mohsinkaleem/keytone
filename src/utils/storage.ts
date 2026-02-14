@@ -2,6 +2,9 @@
  * Storage utilities for persisting user data
  */
 
+import type { Universe, Excerpt, UniverseProgress } from '../types/universe';
+import { BUILT_IN_UNIVERSE_IDS } from '../types/universe';
+
 export interface SessionStats {
   id: string;
   date: string;
@@ -66,6 +69,11 @@ export interface UserData {
   achievements: Achievement[];
   customTexts: CustomText[];
   settings: UserSettings;
+  // Universe expansion
+  activeUniverseId: string;
+  universeProgress: Record<string, UniverseProgress>;
+  customUniverses: Universe[];
+  customExcerpts: Excerpt[];
 }
 
 const STORAGE_KEY = 'keytone_user_data';
@@ -96,6 +104,11 @@ const DEFAULT_USER_DATA: UserData = {
     scale: 'C Major Pentatonic',
     chordProgression: 'pop',
   },
+  // Universe expansion defaults
+  activeUniverseId: BUILT_IN_UNIVERSE_IDS.GENERAL,
+  universeProgress: {},
+  customUniverses: [],
+  customExcerpts: [],
 };
 
 // Deep-merge helper: merges source into target, preserving nested defaults
@@ -254,4 +267,109 @@ export function getAchievements(): Achievement[] {
 // Clear all data
 export function clearAllData(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+// ============ Universe Management ============
+
+// Get active universe ID
+export function getActiveUniverseId(): string {
+  return getUserData().activeUniverseId;
+}
+
+// Set active universe
+export function setActiveUniverse(universeId: string): void {
+  const data = getUserData();
+  data.activeUniverseId = universeId;
+  saveUserData(data);
+}
+
+// Get universe progress
+export function getUniverseProgress(universeId: string): UniverseProgress | undefined {
+  return getUserData().universeProgress[universeId];
+}
+
+// Update universe progress
+export function updateUniverseProgress(
+  universeId: string,
+  excerptId: string,
+  completed: boolean
+): void {
+  const data = getUserData();
+  const progress = data.universeProgress[universeId] || {
+    universeId,
+    completedExcerptIds: [],
+    totalExcerpts: 0,
+    lastAccessedAt: new Date().toISOString(),
+  };
+
+  progress.currentExcerptId = excerptId;
+  progress.lastAccessedAt = new Date().toISOString();
+
+  if (completed && !progress.completedExcerptIds.includes(excerptId)) {
+    progress.completedExcerptIds.push(excerptId);
+  }
+
+  data.universeProgress[universeId] = progress;
+  saveUserData(data);
+}
+
+// Add custom universe
+export function addCustomUniverse(universe: Omit<Universe, 'id' | 'createdAt' | 'isBuiltIn'>): Universe {
+  const data = getUserData();
+  const newUniverse: Universe = {
+    ...universe,
+    id: `universe-${Date.now()}`,
+    isBuiltIn: false,
+    createdAt: new Date().toISOString(),
+  };
+  data.customUniverses.push(newUniverse);
+  saveUserData(data);
+  return newUniverse;
+}
+
+// Get custom universes
+export function getCustomUniverses(): Universe[] {
+  return getUserData().customUniverses;
+}
+
+// Delete custom universe
+export function deleteCustomUniverse(universeId: string): void {
+  const data = getUserData();
+  data.customUniverses = data.customUniverses.filter(u => u.id !== universeId);
+  // Also delete associated excerpts
+  data.customExcerpts = data.customExcerpts.filter(e => e.universeId !== universeId);
+  // Reset active universe if deleted
+  if (data.activeUniverseId === universeId) {
+    data.activeUniverseId = BUILT_IN_UNIVERSE_IDS.GENERAL;
+  }
+  saveUserData(data);
+}
+
+// Add custom excerpt
+export function addCustomExcerpt(excerpt: Omit<Excerpt, 'id'>): Excerpt {
+  const data = getUserData();
+  const newExcerpt: Excerpt = {
+    ...excerpt,
+    id: `excerpt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  };
+  data.customExcerpts.push(newExcerpt);
+  saveUserData(data);
+  return newExcerpt;
+}
+
+// Add multiple excerpts (for bulk import)
+export function addCustomExcerpts(excerpts: Omit<Excerpt, 'id'>[]): Excerpt[] {
+  const data = getUserData();
+  const newExcerpts = excerpts.map((excerpt, index) => ({
+    ...excerpt,
+    id: `excerpt-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+  }));
+  data.customExcerpts.push(...newExcerpts);
+  saveUserData(data);
+  return newExcerpts;
+}
+
+// Get excerpts for a universe
+export function getExcerptsForUniverse(universeId: string): Excerpt[] {
+  return getUserData().customExcerpts.filter(e => e.universeId === universeId);
 }

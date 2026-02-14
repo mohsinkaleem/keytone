@@ -6,6 +6,9 @@ A typing practice app that turns your keystrokes into music. Every correct chara
 
 ### Typing Practice
 - **40+ sample texts** across 6 categories: Quotes, Prose, Poetry, Code, Pangrams, Facts
+- **Universes** - Create custom collections from your own documents
+- **Multi-format Ingestion** - Upload `.txt`, `.epub` ebooks, and `.md` files
+- **Robust Text Parsing** - Smart chunking and cleaning for a seamless typing experience
 - **Custom Texts** - Add and practice your own favorite snippets
 - **Auto-start** - Just start typing, no clicks needed
 - **Word-Aware Wrapping** - Clean text display that prevents splitting words across lines
@@ -21,6 +24,7 @@ A typing practice app that turns your keystrokes into music. Every correct chara
 
 ### User Interface
 - **Clean & Modern Layout**: Redesigned header and settings for minimal clutter
+- **Intelligent Focus**: Modal dialogs correctly handle text input without triggering background shortcuts
 - **Compact Virtual Keyboard**: On-screen reference with highlighting that adapts to screen size
 - **Audio Visualizer**: Real-time visual representation of your music
 - **Timed Modes**: Challenge yourself with 30s, 60s, or 120s sessions
