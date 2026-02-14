@@ -48,6 +48,8 @@ interface TypingPracticeProps {
   onSoundThemeChange: (theme: SoundTheme) => void;
   volume: number;
   onVolumeChange: (volume: number) => void;
+  isMuted: boolean;
+  onMuteToggle: (muted: boolean) => void;
 }
 
 export function TypingPractice({
@@ -55,6 +57,8 @@ export function TypingPractice({
   onSoundThemeChange,
   volume,
   onVolumeChange,
+  isMuted,
+  onMuteToggle,
 }: TypingPracticeProps) {
   // User data state
   const [userData, setUserData] = useState(() => getUserData());
@@ -321,7 +325,7 @@ export function TypingPractice({
       )}
 
       {/* Top bar with branding and controls */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-800">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold bg-linear-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             Keytone
@@ -396,19 +400,42 @@ export function TypingPractice({
               </div>
             </div>
 
-            {/* Volume */}
+            {/* Volume & Mute */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500 uppercase">Vol</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={volume}
-                onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                aria-label="Volume control"
-                className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
+              <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-1 px-3">
+                <button
+                  onClick={() => onMuteToggle(!isMuted)}
+                  className={`p-1.5 rounded-md transition-all ${
+                    isMuted ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-white'
+                  }`}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={volume}
+                  onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+                  disabled={isMuted}
+                  aria-label="Volume control"
+                  className={`w-24 h-1.5 rounded-lg appearance-none cursor-pointer accent-indigo-500 ${
+                    isMuted ? 'opacity-30 cursor-not-allowed' : 'bg-gray-700'
+                  }`}
+                />
+              </div>
             </div>
 
             {/* Timed Mode */}
@@ -482,7 +509,7 @@ export function TypingPractice({
       )}
 
       {/* Category and Difficulty tabs */}
-      <div className="px-6 py-3 border-b border-gray-800 overflow-x-auto">
+      <div className="px-6 py-2 border-b border-gray-800 overflow-x-auto">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Categories */}
           <div className="flex gap-2 min-w-max">
@@ -503,8 +530,9 @@ export function TypingPractice({
               <button
                 onClick={() => {
                   setSelectedCategory('quotes');
-                  if (customTextsAsTypingTexts.length > 0) {
-                    setSelectedText(customTextsAsTypingTexts[0]);
+                  const customTexts = customTextsAsTypingTexts();
+                  if (customTexts.length > 0) {
+                    setSelectedText(customTexts[0]);
                     reset();
                   }
                 }}
@@ -551,20 +579,20 @@ export function TypingPractice({
       )}
 
       {/* Main typing area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-3xl space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-5xl space-y-10">
           {/* Text info */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">{selectedText.title}</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-base font-semibold text-white">{selectedText.title}</h2>
+              <p className="text-xs text-gray-400">
                 {selectedText.category} • {selectedText.difficulty} • {selectedText.text.length} chars
                 {enableBackspace && ' • Backspace enabled'}
               </p>
             </div>
             <button
               onClick={handleNextText}
-              className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
               title="Press Tab for new text"
             >
               Skip →
@@ -592,7 +620,7 @@ export function TypingPractice({
 
         {/* Virtual Keyboard */}
         {showKeyboard && (
-          <div className="w-full max-w-4xl mt-6">
+          <div className="w-full max-w-4xl mt-8">
             <VirtualKeyboard
               currentChar={selectedText.text[currentIndex]}
               lastTypedChar={typedChars[typedChars.length - 1]?.char}
@@ -604,7 +632,7 @@ export function TypingPractice({
       </div>
 
       {/* Footer hints */}
-      <footer className="px-6 py-3 border-t border-gray-800 flex items-center justify-center gap-4 text-xs text-gray-500">
+      <footer className="px-6 py-2 border-t border-gray-800 flex items-center justify-center gap-4 text-xs text-gray-500">
         <span>
           <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Tab</kbd> new text
         </span>

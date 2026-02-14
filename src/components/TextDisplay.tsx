@@ -37,7 +37,7 @@ export function TextDisplay({
   return (
     <div 
       ref={containerRef}
-      className={`relative p-8 md:p-10 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-50 max-h-100 overflow-y-auto ${recentError !== null ? 'animate-shake' : ''}`}
+      className={`relative p-8 md:p-12 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-60 max-h-120 overflow-y-auto ${recentError !== null ? 'animate-shake' : ''}`}
     >
       {/* Text container - larger text */}
       <div className="font-mono text-2xl md:text-3xl lg:text-4xl leading-loose tracking-wider select-none">

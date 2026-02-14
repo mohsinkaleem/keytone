@@ -16,12 +16,12 @@ const KEYBOARD_ROWS = [
 ];
 
 const SPECIAL_KEY_WIDTHS: Record<string, string> = {
-  'Tab': 'w-16',
-  'Caps': 'w-18',
-  'Shift': 'w-24',
-  'Space': 'w-72',
-  'Enter': 'w-20',
-  'Backspace': 'w-20',
+  'Tab': 'w-12',
+  'Caps': 'w-14',
+  'Shift': 'w-20',
+  'Space': 'w-60',
+  'Enter': 'w-16',
+  'Backspace': 'w-16',
 };
 
 // Map special characters to their shifted versions
@@ -75,8 +75,8 @@ export function VirtualKeyboard({
 
   const getKeyClass = (key: string) => {
     const baseClass = 'relative flex items-center justify-center rounded-lg font-medium transition-all duration-100 select-none overflow-hidden';
-    const width = SPECIAL_KEY_WIDTHS[key] || 'w-10 sm:w-12';
-    const height = 'h-10 sm:h-12';
+    const width = SPECIAL_KEY_WIDTHS[key] || 'w-8 sm:w-10';
+    const height = 'h-8 sm:h-10';
     
     // Determine key state
     const isPressed = pressedKey === key;
@@ -118,8 +118,8 @@ export function VirtualKeyboard({
   };
 
   return (
-    <div className="w-full px-2 py-4 bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-800/50 relative">
-      <div className="flex flex-col items-center gap-1.5">
+    <div className="w-full px-2 py-3 bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800/50 relative">
+      <div className="flex flex-col items-center gap-1">
         {/* Number row */}
         <div className="flex gap-1">
           {KEYBOARD_ROWS[0].map((key, i) => renderKey(key, i))}

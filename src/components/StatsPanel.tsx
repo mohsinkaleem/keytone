@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts';
 import type { UserStats, SessionStats } from '../utils/storage';
 import { getAchievementProgress } from '../utils/achievements';
 
@@ -79,21 +88,81 @@ export function StatsPanel({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Total Sessions" value={stats.totalSessions.toString()} />
-              <StatCard label="Total Time" value={formatTime(stats.totalTimeSpent)} />
-              <StatCard label="Chars Typed" value={stats.totalCharsTyped.toLocaleString()} />
-              <StatCard label="Correct Chars" value={stats.totalCorrectChars.toLocaleString()} />
-              <StatCard label="Average WPM" value={stats.averageWpm.toString()} highlight />
-              <StatCard label="Average Accuracy" value={`${stats.averageAccuracy}%`} highlight />
-              <StatCard label="Highest WPM" value={stats.highestWpm.toString()} gold />
-              <StatCard label="Highest Streak" value={stats.highestStreak.toString()} gold />
-              <StatCard
-                label="Highest Score"
-                value={stats.highestScore.toLocaleString()}
-                gold
-                className="col-span-2"
-              />
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatCard label="Total Sessions" value={stats.totalSessions.toString()} />
+                <StatCard label="Total Time" value={formatTime(stats.totalTimeSpent)} />
+                <StatCard label="Chars Typed" value={stats.totalCharsTyped.toLocaleString()} />
+                <StatCard label="Correct Chars" value={stats.totalCorrectChars.toLocaleString()} />
+                <StatCard label="Average WPM" value={stats.averageWpm.toString()} highlight />
+                <StatCard label="Average Accuracy" value={`${stats.averageAccuracy}%`} highlight />
+                <StatCard label="Highest WPM" value={stats.highestWpm.toString()} gold />
+                <StatCard label="Highest Streak" value={stats.highestStreak.toString()} gold />
+                <StatCard
+                  label="Highest Score"
+                  value={stats.highestScore.toLocaleString()}
+                  gold
+                  className="col-span-2"
+                />
+              </div>
+
+              {stats.sessionsHistory.length > 1 && (
+                <div className="p-6 bg-gray-800/30 rounded-2xl border border-gray-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-4">WPM Progress (Last 10 Sessions)</h3>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={stats.sessionsHistory.slice(-10).map((s, i) => ({
+                          name: i + 1,
+                          wpm: s.wpm,
+                          fullDate: new Date(s.date).toLocaleDateString(),
+                        }))}
+                      >
+                        <defs>
+                          <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `${value}`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1f2937',
+                            border: '1px solid #374151',
+                            borderRadius: '8px',
+                            color: '#fff',
+                          }}
+                          itemStyle={{ color: '#818cf8' }}
+                          labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="wpm"
+                          stroke="#818cf8"
+                          strokeWidth={3}
+                          fillOpacity={1}
+                          fill="url(#colorWpm)"
+                          animationDuration={1500}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

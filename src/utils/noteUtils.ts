@@ -134,7 +134,6 @@ export class MelodicGenerator {
   private baseNote: number = 60; // Middle C
   private progression: typeof CHORD_PROGRESSIONS[ProgressionName];
   private chordIndex: number = 0;
-  private noteInChord: number = 0;
   private charCount: number = 0;
   private wordCount: number = 0;
   private lastNotes: number[] = [];
@@ -158,7 +157,6 @@ export class MelodicGenerator {
 
   reset(): void {
     this.chordIndex = 0;
-    this.noteInChord = 0;
     this.charCount = 0;
     this.wordCount = 0;
     this.lastNotes = [];
@@ -172,7 +170,6 @@ export class MelodicGenerator {
     // Change chord every phraseLength characters
     if (this.charCount % this.phraseLength === 0) {
       this.chordIndex = (this.chordIndex + 1) % this.progression.length;
-      this.noteInChord = 0;
     }
   }
 

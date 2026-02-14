@@ -98,6 +98,7 @@ class AudioEngine {
   private analyser: AnalyserNode | null = null;
   private activeNotes: Map<number, ActiveNote> = new Map();
   private soundTheme: SoundTheme = 'piano';
+  private isMuted: boolean = false;
   private adsr: ADSRConfig = {
     attack: 0.02,
     decay: 0.1,
@@ -165,6 +166,20 @@ class AudioEngine {
   }
 
   /**
+   * Set muted state
+   */
+  setMuted(muted: boolean): void {
+    this.isMuted = muted;
+  }
+
+  /**
+   * Get muted state
+   */
+  getMuted(): boolean {
+    return this.isMuted;
+  }
+
+  /**
    * Set the waveform type (deprecated - use setSoundTheme instead)
    */
   setWaveform(_waveform: WaveformType): void {
@@ -192,8 +207,7 @@ class AudioEngine {
    * Play a note at the specified frequency using current theme
    */
   playNote(frequency: number): void {
-    if (!this.audioContext || !this.masterGain) {
-      console.warn('AudioEngine not initialized');
+    if (!this.audioContext || !this.masterGain || this.isMuted) {
       return;
     }
 
@@ -262,8 +276,7 @@ class AudioEngine {
    * Play a satisfying spacebar sound (rich bass thump with layered textures)
    */
   playSpacebarSound(velocity: number = 0.5): void {
-    if (!this.audioContext || !this.masterGain) {
-      console.warn('AudioEngine not initialized');
+    if (!this.audioContext || !this.masterGain || this.isMuted) {
       return;
     }
 
@@ -368,8 +381,7 @@ class AudioEngine {
    * Play a note with velocity control
    */
   playNoteWithVelocity(frequency: number, velocity: number = 1.0): void {
-    if (!this.audioContext || !this.masterGain) {
-      console.warn('AudioEngine not initialized');
+    if (!this.audioContext || !this.masterGain || this.isMuted) {
       return;
     }
 
