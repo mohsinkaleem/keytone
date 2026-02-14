@@ -8,3 +8,4 @@ export { AchievementPopup } from './AchievementPopup';
 export { StatsPanel } from './StatsPanel';
 export { CustomTextModal } from './CustomTextModal';
 export { TimedModeOverlay } from './TimedModeOverlay';
+export { VirtualKeyboard } from './VirtualKeyboard';

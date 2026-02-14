@@ -259,6 +259,182 @@ class AudioEngine {
   }
 
   /**
+   * Play a satisfying spacebar sound (rich bass thump with layered textures)
+   */
+  playSpacebarSound(velocity: number = 0.5): void {
+    if (!this.audioContext || !this.masterGain) {
+      console.warn('AudioEngine not initialized');
+      return;
+    }
+
+    const now = this.audioContext.currentTime;
+    const baseFreq = 80; // Slightly higher for more presence
+
+    // === Layer 1: Main bass thump with pitch drop ===
+    const bassOsc = this.audioContext.createOscillator();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.setValueAtTime(baseFreq * 1.5, now);
+    bassOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.4, now + 0.08);
+
+    const bassGain = this.audioContext.createGain();
+    bassGain.gain.setValueAtTime(0, now);
+    bassGain.gain.linearRampToValueAtTime(velocity * 0.7, now + 0.005);
+    bassGain.gain.exponentialRampToValueAtTime(velocity * 0.3, now + 0.04);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    // Bass filter for warmth
+    const bassFilter = this.audioContext.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 300;
+    bassFilter.Q.value = 1;
+
+    bassOsc.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(this.masterGain);
+
+    // === Layer 2: Sub-bass for depth ===
+    const subOsc = this.audioContext.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(45, now);
+    subOsc.frequency.exponentialRampToValueAtTime(35, now + 0.1);
+
+    const subGain = this.audioContext.createGain();
+    subGain.gain.setValueAtTime(0, now);
+    subGain.gain.linearRampToValueAtTime(velocity * 0.4, now + 0.01);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.masterGain);
+
+    // === Layer 3: Click transient for tactile feel ===
+    const clickOsc = this.audioContext.createOscillator();
+    clickOsc.type = 'square';
+    clickOsc.frequency.setValueAtTime(1200, now);
+    clickOsc.frequency.exponentialRampToValueAtTime(200, now + 0.015);
+
+    const clickGain = this.audioContext.createGain();
+    clickGain.gain.setValueAtTime(velocity * 0.15, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+    const clickFilter = this.audioContext.createBiquadFilter();
+    clickFilter.type = 'bandpass';
+    clickFilter.frequency.value = 800;
+    clickFilter.Q.value = 2;
+
+    clickOsc.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(this.masterGain);
+
+    // === Layer 4: Soft noise burst for texture ===
+    const noiseBuffer = this.audioContext.createBuffer(
+      1,
+      this.audioContext.sampleRate * 0.04,
+      this.audioContext.sampleRate
+    );
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) {
+      // Shaped noise - starts strong, fades
+      const envelope = 1 - (i / noiseData.length);
+      noiseData[i] = (Math.random() * 2 - 1) * 0.4 * envelope;
+    }
+    const noiseSource = this.audioContext.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const noiseFilter = this.audioContext.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 400;
+    noiseFilter.Q.value = 0.7;
+
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.setValueAtTime(velocity * 0.12, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+
+    // Start all oscillators
+    bassOsc.start(now);
+    bassOsc.stop(now + 0.2);
+    subOsc.start(now);
+    subOsc.stop(now + 0.18);
+    clickOsc.start(now);
+    clickOsc.stop(now + 0.03);
+    noiseSource.start(now);
+    noiseSource.stop(now + 0.05);
+  }
+
+  /**
+   * Play a note with velocity control
+   */
+  playNoteWithVelocity(frequency: number, velocity: number = 1.0): void {
+    if (!this.audioContext || !this.masterGain) {
+      console.warn('AudioEngine not initialized');
+      return;
+    }
+
+    // Don't play if already playing this frequency
+    if (this.activeNotes.has(frequency)) {
+      return;
+    }
+
+    const now = this.audioContext.currentTime;
+    const config = THEME_CONFIGS[this.soundTheme];
+
+    // Create oscillators for each harmonic
+    const oscillators: OscillatorNode[] = [];
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.setValueAtTime(0, now);
+
+    // Create optional filter
+    let filter: BiquadFilterNode | undefined;
+
+    if (config.filterFreq && config.filterType) {
+      filter = this.audioContext.createBiquadFilter();
+      filter.type = config.filterType;
+      filter.frequency.value = config.filterFreq;
+      filter.Q.value = config.filterQ || 1;
+      gainNode.connect(filter);
+    }
+
+    // Create harmonics
+    config.harmonics.forEach((harmonic, index) => {
+      const osc = this.audioContext!.createOscillator();
+      osc.type = config.waveform;
+      osc.frequency.setValueAtTime(frequency * harmonic, now);
+
+      if (config.detune) {
+        osc.detune.setValueAtTime(config.detune * (index % 2 ? 1 : -1), now);
+      }
+
+      const harmonicGain = this.audioContext!.createGain();
+      harmonicGain.gain.value = (config.harmonicGains[index] || 0.5) * velocity;
+
+      osc.connect(harmonicGain);
+      harmonicGain.connect(gainNode);
+      osc.start(now);
+      oscillators.push(osc);
+    });
+
+    // Connect to master (through filter if exists)
+    if (filter) {
+      filter.connect(this.masterGain);
+    } else {
+      gainNode.connect(this.masterGain);
+    }
+
+    // Apply ADSR envelope with velocity
+    const peakTime = now + this.adsr.attack;
+    const sustainTime = peakTime + this.adsr.decay;
+
+    gainNode.gain.linearRampToValueAtTime(velocity, peakTime);
+    gainNode.gain.linearRampToValueAtTime(this.adsr.sustain * velocity, sustainTime);
+
+    // Store reference
+    this.activeNotes.set(frequency, { oscillators, gainNode, filter, frequency });
+  }
+
+  /**
    * Stop a note at the specified frequency
    */
   stopNote(frequency: number): void {

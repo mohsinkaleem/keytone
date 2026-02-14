@@ -1,10 +1,8 @@
-import { memo } from 'react';
-
 interface StartOverlayProps {
   onStart: () => void;
 }
 
-export const StartOverlay = memo(function StartOverlay({ onStart }: StartOverlayProps) {
+export function StartOverlay({ onStart }: StartOverlayProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 backdrop-blur-md">
       <div className="text-center max-w-md px-6">
@@ -39,6 +37,6 @@ export const StartOverlay = memo(function StartOverlay({ onStart }: StartOverlay
       </div>
     </div>
   );
-});
+}
 
 export default StartOverlay;

@@ -54,6 +54,7 @@ export interface UserSettings {
   volume: number;
   waveform: string;
   showVisualizer: boolean;
+  showKeyboard: boolean;
   enableBackspace: boolean;
   scale: string;
 }
@@ -87,6 +88,7 @@ const DEFAULT_USER_DATA: UserData = {
     volume: 0.5,
     waveform: 'sine',
     showVisualizer: true,
+    showKeyboard: true,
     enableBackspace: true,
     scale: 'C Major Pentatonic',
   },

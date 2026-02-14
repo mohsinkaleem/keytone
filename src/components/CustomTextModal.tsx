@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react';
+import { useState } from 'react';
 import type { CustomText } from '../utils/storage';
 
 interface CustomTextModalProps {
@@ -7,7 +7,7 @@ interface CustomTextModalProps {
   existingTexts: CustomText[];
 }
 
-export const CustomTextModal = memo(function CustomTextModal({
+export function CustomTextModal({
   onSave,
   onClose,
   existingTexts,
@@ -17,37 +17,34 @@ export const CustomTextModal = memo(function CustomTextModal({
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [error, setError] = useState('');
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      setError('');
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-      const trimmedTitle = title.trim();
-      const trimmedText = text.trim();
+    const trimmedTitle = title.trim();
+    const trimmedText = text.trim();
 
-      if (!trimmedTitle) {
-        setError('Please enter a title');
-        return;
-      }
+    if (!trimmedTitle) {
+      setError('Please enter a title');
+      return;
+    }
 
-      if (trimmedText.length < 10) {
-        setError('Text must be at least 10 characters');
-        return;
-      }
+    if (trimmedText.length < 10) {
+      setError('Text must be at least 10 characters');
+      return;
+    }
 
-      if (trimmedText.length > 500) {
-        setError('Text must be 500 characters or less');
-        return;
-      }
+    if (trimmedText.length > 500) {
+      setError('Text must be 500 characters or less');
+      return;
+    }
 
-      onSave({
-        title: trimmedTitle,
-        text: trimmedText,
-        difficulty,
-      });
-    },
-    [title, text, difficulty, onSave]
-  );
+    onSave({
+      title: trimmedTitle,
+      text: trimmedText,
+      difficulty,
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -159,6 +156,6 @@ export const CustomTextModal = memo(function CustomTextModal({
       </div>
     </div>
   );
-});
+}
 
 export default CustomTextModal;

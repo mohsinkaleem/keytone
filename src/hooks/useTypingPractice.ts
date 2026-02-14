@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { audioEngine } from '../audio';
-import { midiToFrequency, ScaleWalker } from '../utils/noteUtils';
+import { midiToFrequency, MelodicGenerator } from '../utils/noteUtils';
 
 export interface TypingStats {
   correctChars: number;
@@ -85,10 +85,12 @@ export function useTypingPractice({
     isComplete: false,
   });
 
-  const scaleWalkerRef = useRef(new ScaleWalker('C Major Pentatonic'));
+  const melodicGeneratorRef = useRef(new MelodicGenerator('pop'));
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const completionHandledRef = useRef(false);
   const autoStartRef = useRef(autoStart);
+  const handleKeyPressRef = useRef<(key: string) => void>(() => {});
+  const handleBackspaceRef = useRef<() => void>(() => {});
 
   // Keep autoStartRef in sync
   useEffect(() => {
@@ -96,32 +98,39 @@ export function useTypingPractice({
   }, [autoStart]);
 
   // Calculate score multiplier based on streak
-  const getStreakMultiplier = useCallback((streak: number): number => {
+  const getStreakMultiplier = (streak: number): number => {
     if (streak >= 100) return SCORE_CONFIG.streakBonus[100];
     if (streak >= 50) return SCORE_CONFIG.streakBonus[50];
     if (streak >= 25) return SCORE_CONFIG.streakBonus[25];
     if (streak >= 10) return SCORE_CONFIG.streakBonus[10];
     return 1;
-  }, []);
+  };
 
-  // Play sound for correct key
-  const playCorrectSound = useCallback(() => {
-    const midiNote = scaleWalkerRef.current.getNextNote();
-    const frequency = midiToFrequency(midiNote);
-    audioEngine.playNote(frequency);
-    setTimeout(() => audioEngine.stopNote(frequency), 150);
-  }, []);
+  // Play sound for correct key with character-aware note selection
+  const playCorrectSound = (char: string) => {
+    const { note, velocity, isSpace } = melodicGeneratorRef.current.getNextNote(char);
+    
+    if (isSpace) {
+      // Play spacebar thump sound
+      audioEngine.playSpacebarSound(velocity);
+    } else {
+      // Play melodic note with velocity
+      const frequency = midiToFrequency(note);
+      audioEngine.playNoteWithVelocity(frequency, velocity);
+      setTimeout(() => audioEngine.stopNote(frequency), 150);
+    }
+  };
 
   // Play sound for incorrect key
-  const playErrorSound = useCallback(() => {
+  const playErrorSound = () => {
     ERROR_FREQUENCIES.forEach((freq) => {
       audioEngine.playNote(freq);
       setTimeout(() => audioEngine.stopNote(freq), 100);
     });
-  }, []);
+  };
 
   // Play completion celebration
-  const playCompletionSound = useCallback(() => {
+  const playCompletionSound = () => {
     const chord = [60, 64, 67, 72].map(midiToFrequency); // C major chord
     chord.forEach((freq, i) => {
       setTimeout(() => {
@@ -129,11 +138,10 @@ export function useTypingPractice({
         setTimeout(() => audioEngine.stopNote(freq), 500);
       }, i * 100);
     });
-  }, []);
+  };
 
   // Handle key press
-  const handleKeyPress = useCallback(
-    (key: string) => {
+  const handleKeyPress = (key: string) => {
       // Skip if already complete
       if (stats.isComplete) return;
       
@@ -156,7 +164,7 @@ export function useTypingPractice({
 
       // Play appropriate sound
       if (isCorrect) {
-        playCorrectSound();
+        playCorrectSound(key);
       } else {
         playErrorSound();
       }
@@ -214,28 +222,17 @@ export function useTypingPractice({
 
       // Move to next character
       setCurrentIndex((prev) => prev + 1);
-    },
-    [
-      isStarted,
-      stats.isComplete,
-      text,
-      currentIndex,
-      playCorrectSound,
-      playErrorSound,
-      getStreakMultiplier,
-      elapsedTime,
-    ]
-  );
+  };
 
   // Start the practice session
-  const start = useCallback(async () => {
+  const start = async () => {
     await audioEngine.initialize();
     setIsStarted(true);
     setStartTime(Date.now());
-  }, []);
+  };
 
   // Reset the practice session
-  const reset = useCallback(() => {
+  const reset = () => {
     setCurrentIndex(0);
     setTypedChars([]);
     setIsStarted(false);
@@ -253,12 +250,12 @@ export function useTypingPractice({
       elapsedTime: 0,
       isComplete: false,
     });
-    scaleWalkerRef.current.reset();
+    melodicGeneratorRef.current.reset();
     completionHandledRef.current = false;
-  }, []);
+  };
 
   // Handle backspace (delete previous character)
-  const handleBackspace = useCallback(() => {
+  const handleBackspace = () => {
     if (!enableBackspace || currentIndex === 0 || stats.isComplete) return;
 
     // Remove last typed character
@@ -288,10 +285,10 @@ export function useTypingPractice({
     });
 
     setCurrentIndex((prev) => Math.max(0, prev - 1));
-  }, [enableBackspace, currentIndex, stats.isComplete]);
+  };
 
   // Force complete (for timed mode)
-  const forceComplete = useCallback(() => {
+  const forceComplete = () => {
     if (stats.isComplete) return;
 
     setStats((prev) => {
@@ -313,7 +310,7 @@ export function useTypingPractice({
         isComplete: true,
       };
     });
-  }, [stats.isComplete]);
+  };
 
   // Timer effect
   useEffect(() => {
@@ -338,7 +335,13 @@ export function useTypingPractice({
       playCompletionSound();
       onComplete?.(stats);
     }
-  }, [stats, onComplete, playCompletionSound]);
+  }, [stats, onComplete]);
+
+  // Keep handler refs updated
+  useEffect(() => {
+    handleKeyPressRef.current = handleKeyPress;
+    handleBackspaceRef.current = handleBackspace;
+  });
 
   // Keyboard event listener
   useEffect(() => {
@@ -355,20 +358,20 @@ export function useTypingPractice({
       // Handle backspace
       if (e.key === 'Backspace' && enableBackspace) {
         e.preventDefault();
-        handleBackspace();
+        handleBackspaceRef.current();
         return;
       }
 
       // Handle printable characters
       if (e.key.length === 1) {
         e.preventDefault();
-        handleKeyPress(e.key);
+        handleKeyPressRef.current(e.key);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isStarted, stats.isComplete, handleKeyPress, handleBackspace, enableBackspace]);
+  }, [isStarted, stats.isComplete, enableBackspace]);
 
   return {
     currentIndex,

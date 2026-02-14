@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AchievementDefinition } from '../utils/achievements';
 
 interface AchievementPopupProps {
@@ -6,7 +6,7 @@ interface AchievementPopupProps {
   onClose: () => void;
 }
 
-export const AchievementPopup = memo(function AchievementPopup({
+export function AchievementPopup({
   achievement,
   onClose,
 }: AchievementPopupProps) {
@@ -52,6 +52,6 @@ export const AchievementPopup = memo(function AchievementPopup({
       </div>
     </div>
   );
-});
+}
 
 export default AchievementPopup;

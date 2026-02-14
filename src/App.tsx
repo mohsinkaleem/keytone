@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { audioEngine, type SoundTheme } from './audio';
 import { StartOverlay, TypingPractice } from './components';
 
@@ -8,23 +8,23 @@ function App() {
   const [volume, setVolume] = useState(0.5);
 
   // Handle audio initialization
-  const handleStart = useCallback(async () => {
+  const handleStart = async () => {
     await audioEngine.initialize();
     audioEngine.setSoundTheme(soundTheme);
     setIsStarted(true);
-  }, [soundTheme]);
+  };
 
   // Handle sound theme change
-  const handleSoundThemeChange = useCallback((newTheme: SoundTheme) => {
+  const handleSoundThemeChange = (newTheme: SoundTheme) => {
     setSoundTheme(newTheme);
     audioEngine.setSoundTheme(newTheme);
-  }, []);
+  };
 
   // Handle volume change
-  const handleVolumeChange = useCallback((newVolume: number) => {
+  const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume);
     audioEngine.setVolume(newVolume);
-  }, []);
+  };
 
   // Show start overlay if not started
   if (!isStarted) {

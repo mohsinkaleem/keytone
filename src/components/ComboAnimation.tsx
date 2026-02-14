@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ComboAnimationProps {
   streak: number;
@@ -12,23 +12,23 @@ interface FloatingText {
   y: number;
 }
 
-export const ComboAnimation = memo(function ComboAnimation({
+const getStreakText = (s: number): string | null => {
+  if (s === 10) return '10 Combo! 🔥';
+  if (s === 25) return '25 Combo! 🔥🔥';
+  if (s === 50) return 'UNSTOPPABLE! 💫';
+  if (s === 100) return 'LEGENDARY! 🌟';
+  if (s === 150) return 'GODLIKE! 👑';
+  if (s === 200) return 'TRANSCENDENT! ✨';
+  if (s > 0 && s % 50 === 0) return `${s} Combo! 🎯`;
+  return null;
+};
+
+export function ComboAnimation({
   streak,
   show,
 }: ComboAnimationProps) {
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [lastStreak, setLastStreak] = useState(0);
-
-  const getStreakText = useCallback((s: number): string | null => {
-    if (s === 10) return '10 Combo! 🔥';
-    if (s === 25) return '25 Combo! 🔥🔥';
-    if (s === 50) return 'UNSTOPPABLE! 💫';
-    if (s === 100) return 'LEGENDARY! 🌟';
-    if (s === 150) return 'GODLIKE! 👑';
-    if (s === 200) return 'TRANSCENDENT! ✨';
-    if (s > 0 && s % 50 === 0) return `${s} Combo! 🎯`;
-    return null;
-  }, []);
 
   useEffect(() => {
     if (!show || streak <= lastStreak) {
@@ -91,6 +91,6 @@ export const ComboAnimation = memo(function ComboAnimation({
       ))}
     </div>
   );
-});
+}
 
 export default ComboAnimation;

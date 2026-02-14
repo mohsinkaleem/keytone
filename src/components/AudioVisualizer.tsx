@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { audioEngine } from '../audio';
 
 interface AudioVisualizerProps {
@@ -9,7 +9,7 @@ interface AudioVisualizerProps {
   colorScheme?: 'gradient' | 'mono' | 'rainbow';
 }
 
-export const AudioVisualizer = memo(function AudioVisualizer({
+export function AudioVisualizer({
   isActive = true,
   height = 60,
   className = '',
@@ -184,6 +184,6 @@ export const AudioVisualizer = memo(function AudioVisualizer({
       style={{ height }}
     />
   );
-});
+}
 
 export default AudioVisualizer;

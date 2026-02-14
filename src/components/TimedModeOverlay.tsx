@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 interface TimedModeOverlayProps {
   duration: number; // seconds
@@ -7,7 +7,7 @@ interface TimedModeOverlayProps {
   onReset: () => void;
 }
 
-export const TimedModeOverlay = memo(function TimedModeOverlay({
+export function TimedModeOverlay({
   duration,
   isActive,
   onTimeUp,
@@ -39,11 +39,11 @@ export const TimedModeOverlay = memo(function TimedModeOverlay({
     return () => clearInterval(interval);
   }, [isActive, isExpired, onTimeUp]);
 
-  const formatTime = useCallback((seconds: number): string => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
+  };
 
   const progressPercent = (timeLeft / duration) * 100;
   const isLow = timeLeft <= 10;
@@ -113,6 +113,6 @@ export const TimedModeOverlay = memo(function TimedModeOverlay({
       )}
     </div>
   );
-});
+}
 
 export default TimedModeOverlay;

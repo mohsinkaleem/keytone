@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { TextDisplay } from './TextDisplay';
 import { TypingStats } from './TypingStats';
 import { AudioVisualizer } from './AudioVisualizer';
@@ -7,6 +7,7 @@ import { AchievementPopup } from './AchievementPopup';
 import { StatsPanel } from './StatsPanel';
 import { CustomTextModal } from './CustomTextModal';
 import { TimedModeOverlay } from './TimedModeOverlay';
+import { VirtualKeyboard } from './VirtualKeyboard';
 import { useTypingPractice } from '../hooks/useTypingPractice';
 import { 
   CATEGORIES, 
@@ -49,7 +50,7 @@ interface TypingPracticeProps {
   onVolumeChange: (volume: number) => void;
 }
 
-export const TypingPractice = memo(function TypingPractice({
+export function TypingPractice({
   soundTheme,
   onSoundThemeChange,
   volume,
@@ -69,6 +70,7 @@ export const TypingPractice = memo(function TypingPractice({
   const [showStats, setShowStats] = useState(false);
   const [showCustomTextModal, setShowCustomTextModal] = useState(false);
   const [showVisualizer, setShowVisualizer] = useState(userData.settings.showVisualizer);
+  const [showKeyboard, setShowKeyboard] = useState(userData.settings.showKeyboard ?? true);
   const [enableBackspace, setEnableBackspace] = useState(userData.settings.enableBackspace);
   const [timedMode, setTimedMode] = useState<number | null>(null);
   
@@ -77,7 +79,7 @@ export const TypingPractice = memo(function TypingPractice({
   const [achievementQueue, setAchievementQueue] = useState<AchievementDefinition[]>([]);
 
   // Custom texts merged with default texts
-  const customTextsAsTypingTexts = useMemo((): TypingText[] => {
+  const customTextsAsTypingTexts = (): TypingText[] => {
     return userData.customTexts.map((ct: CustomText) => ({
       id: ct.id,
       title: ct.title,
@@ -85,10 +87,10 @@ export const TypingPractice = memo(function TypingPractice({
       difficulty: ct.difficulty,
       category: 'quotes' as Category, // Custom texts go in quotes category
     }));
-  }, [userData.customTexts]);
+  };
 
   // Handle completion callback
-  const handleComplete = useCallback((stats: {
+  const handleComplete = (stats: {
     correctChars: number;
     incorrectChars: number;
     wpm: number;
@@ -122,7 +124,7 @@ export const TypingPractice = memo(function TypingPractice({
       setUnlockedAchievementIds((prev) => [...prev, ...newAchievements.map((a) => a.id)]);
       setAchievementQueue((prev) => [...prev, ...newAchievements]);
     }
-  }, [selectedText, unlockedAchievementIds]);
+  };
 
   const { currentIndex, typedChars, stats, isStarted, reset, forceComplete } = useTypingPractice({
     text: selectedText.text,
@@ -141,14 +143,14 @@ export const TypingPractice = memo(function TypingPractice({
   }, [achievementQueue, currentAchievement]);
 
   // Get next random text in category/difficulty
-  const handleNextText = useCallback(() => {
+  const handleNextText = () => {
     let texts = getTextsByCategory(selectedCategory);
     if (selectedDifficulty !== 'all') {
       texts = texts.filter((t) => t.difficulty === selectedDifficulty);
     }
     // Add custom texts if viewing all or quotes
     if (selectedCategory === 'all' || selectedCategory === 'quotes') {
-      texts = [...texts, ...customTextsAsTypingTexts];
+      texts = [...texts, ...customTextsAsTypingTexts()];
     }
     if (texts.length === 0) texts = [getRandomText()];
     const availableTexts = texts.filter((t) => t.id !== selectedText.id);
@@ -157,10 +159,10 @@ export const TypingPractice = memo(function TypingPractice({
       : texts[0];
     setSelectedText(newText);
     reset();
-  }, [selectedCategory, selectedDifficulty, selectedText.id, reset, customTextsAsTypingTexts]);
+  };
 
   // Handle category change
-  const handleCategoryChange = useCallback((category: Category | 'all') => {
+  const handleCategoryChange = (category: Category | 'all') => {
     setSelectedCategory(category);
     let texts = getTextsByCategory(category);
     if (selectedDifficulty !== 'all') {
@@ -170,10 +172,10 @@ export const TypingPractice = memo(function TypingPractice({
       setSelectedText(texts[Math.floor(Math.random() * texts.length)]);
       reset();
     }
-  }, [reset, selectedDifficulty]);
+  };
 
   // Handle difficulty change
-  const handleDifficultyChange = useCallback((difficulty: Difficulty) => {
+  const handleDifficultyChange = (difficulty: Difficulty) => {
     setSelectedDifficulty(difficulty);
     let texts = getTextsByCategory(selectedCategory);
     if (difficulty !== 'all') {
@@ -183,10 +185,10 @@ export const TypingPractice = memo(function TypingPractice({
       setSelectedText(texts[Math.floor(Math.random() * texts.length)]);
       reset();
     }
-  }, [reset, selectedCategory]);
+  };
 
   // Handle adding custom text
-  const handleAddCustomText = useCallback((text: Omit<CustomText, 'id' | 'createdAt'>) => {
+  const handleAddCustomText = (text: Omit<CustomText, 'id' | 'createdAt'>) => {
     const newText = addCustomText(text);
     setUserData(getUserData());
     setShowCustomTextModal(false);
@@ -199,18 +201,18 @@ export const TypingPractice = memo(function TypingPractice({
       category: 'quotes',
     });
     reset();
-  }, [reset]);
+  };
 
   // Save settings changes
-  const handleSettingsChange = useCallback((key: string, value: unknown) => {
+  const handleSettingsChange = (key: string, value: unknown) => {
     updateSettings({ [key]: value });
     setUserData(getUserData());
-  }, []);
+  };
 
   // Handle timed mode time up
-  const handleTimeUp = useCallback(() => {
+  const handleTimeUp = () => {
     forceComplete();
-  }, [forceComplete]);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -321,7 +323,7 @@ export const TypingPractice = memo(function TypingPractice({
       {/* Top bar with branding and controls */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold bg-linear-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             Keytone
           </h1>
           <span className="text-gray-500 text-sm hidden sm:block">Type with music</span>
@@ -461,6 +463,20 @@ export const TypingPractice = memo(function TypingPractice({
               />
               <span className="text-sm text-gray-400">Audio Visualizer</span>
             </label>
+
+            {/* Keyboard Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showKeyboard}
+                onChange={(e) => {
+                  setShowKeyboard(e.target.checked);
+                  handleSettingsChange('showKeyboard', e.target.checked);
+                }}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-gray-400">Virtual Keyboard</span>
+            </label>
           </div>
         </div>
       )}
@@ -573,6 +589,18 @@ export const TypingPractice = memo(function TypingPractice({
             </p>
           )}
         </div>
+
+        {/* Virtual Keyboard */}
+        {showKeyboard && (
+          <div className="w-full max-w-4xl mt-6">
+            <VirtualKeyboard
+              currentChar={selectedText.text[currentIndex]}
+              lastTypedChar={typedChars[typedChars.length - 1]?.char}
+              isCorrect={typedChars[typedChars.length - 1]?.correct ?? true}
+              isActive={isStarted || !stats.isComplete}
+            />
+          </div>
+        )}
       </div>
 
       {/* Footer hints */}
@@ -609,6 +637,6 @@ export const TypingPractice = memo(function TypingPractice({
       )}
     </div>
   );
-});
+}
 
 export default TypingPractice;

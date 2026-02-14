@@ -1,4 +1,3 @@
-import { memo } from 'react';
 import type { TypingStats as Stats } from '../hooks/useTypingPractice';
 
 interface TypingStatsProps {
@@ -6,7 +5,7 @@ interface TypingStatsProps {
   showDetailed?: boolean;
 }
 
-export const TypingStats = memo(function TypingStats({
+export function TypingStats({
   stats,
   showDetailed = false,
 }: TypingStatsProps) {
@@ -112,6 +111,6 @@ export const TypingStats = memo(function TypingStats({
       )}
     </div>
   );
-});
+}
 
 export default TypingStats;

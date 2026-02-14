@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { useState } from 'react';
 import type { UserStats, SessionStats } from '../utils/storage';
 import { getAchievementProgress } from '../utils/achievements';
 
@@ -8,7 +8,7 @@ interface StatsPanelProps {
   onClose: () => void;
 }
 
-export const StatsPanel = memo(function StatsPanel({
+export function StatsPanel({
   stats,
   unlockedAchievementIds,
   onClose,
@@ -197,7 +197,7 @@ export const StatsPanel = memo(function StatsPanel({
       </div>
     </div>
   );
-});
+}
 
 // Helper component
 function StatCard({
