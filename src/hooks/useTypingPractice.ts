@@ -18,6 +18,8 @@ export interface TypingStats {
 interface UseTypingPracticeOptions {
   text: string;
   autoStart?: boolean; // Auto-start when user types first character
+  enableBackspace?: boolean; // Allow backspace to correct mistakes
+  timedMode?: number | null; // Time limit in seconds (null for no limit)
   onComplete?: (stats: TypingStats) => void;
 }
 
@@ -29,6 +31,8 @@ interface UseTypingPracticeReturn {
   start: () => void;
   reset: () => void;
   handleKeyPress: (key: string) => void;
+  handleBackspace: () => void;
+  forceComplete: () => void;
 }
 
 // Score configuration
@@ -59,6 +63,8 @@ const ERROR_FREQUENCIES = [233.08, 246.94]; // Bb3 and B3 - dissonant
 export function useTypingPractice({
   text,
   autoStart = false,
+  enableBackspace = true,
+  timedMode: _timedMode = null,
   onComplete,
 }: UseTypingPracticeOptions): UseTypingPracticeReturn {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -251,6 +257,64 @@ export function useTypingPractice({
     completionHandledRef.current = false;
   }, []);
 
+  // Handle backspace (delete previous character)
+  const handleBackspace = useCallback(() => {
+    if (!enableBackspace || currentIndex === 0 || stats.isComplete) return;
+
+    // Remove last typed character
+    setTypedChars((prev) => {
+      const lastChar = prev[prev.length - 1];
+      const newTyped = prev.slice(0, -1);
+
+      // Update stats to remove the effect of the deleted character
+      setStats((prevStats) => {
+        const wasCorrect = lastChar?.correct;
+        const newCorrect = prevStats.correctChars - (wasCorrect ? 1 : 0);
+        const newIncorrect = prevStats.incorrectChars - (wasCorrect ? 0 : 1);
+        const newTotal = prevStats.totalChars - 1;
+        const accuracy = newTotal > 0 ? Math.round((newCorrect / newTotal) * 100) : 100;
+
+        return {
+          ...prevStats,
+          correctChars: Math.max(0, newCorrect),
+          incorrectChars: Math.max(0, newIncorrect),
+          totalChars: Math.max(0, newTotal),
+          currentStreak: 0, // Break streak on backspace
+          accuracy,
+        };
+      });
+
+      return newTyped;
+    });
+
+    setCurrentIndex((prev) => Math.max(0, prev - 1));
+  }, [enableBackspace, currentIndex, stats.isComplete]);
+
+  // Force complete (for timed mode)
+  const forceComplete = useCallback(() => {
+    if (stats.isComplete) return;
+
+    setStats((prev) => {
+      let finalScore = prev.score;
+
+      // Accuracy bonus
+      if (prev.accuracy >= 95) finalScore += SCORE_CONFIG.accuracyBonus[95];
+      else if (prev.accuracy >= 90) finalScore += SCORE_CONFIG.accuracyBonus[90];
+      else if (prev.accuracy >= 85) finalScore += SCORE_CONFIG.accuracyBonus[85];
+
+      // WPM bonus
+      if (prev.wpm >= 80) finalScore += SCORE_CONFIG.wpmBonus[80];
+      else if (prev.wpm >= 60) finalScore += SCORE_CONFIG.wpmBonus[60];
+      else if (prev.wpm >= 40) finalScore += SCORE_CONFIG.wpmBonus[40];
+
+      return {
+        ...prev,
+        score: finalScore,
+        isComplete: true,
+      };
+    });
+  }, [stats.isComplete]);
+
   // Timer effect
   useEffect(() => {
     if (isStarted && startTime && !stats.isComplete) {
@@ -288,6 +352,13 @@ export function useTypingPractice({
       // Ignore modifier keys
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+      // Handle backspace
+      if (e.key === 'Backspace' && enableBackspace) {
+        e.preventDefault();
+        handleBackspace();
+        return;
+      }
+
       // Handle printable characters
       if (e.key.length === 1) {
         e.preventDefault();
@@ -297,7 +368,7 @@ export function useTypingPractice({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isStarted, stats.isComplete, handleKeyPress]);
+  }, [isStarted, stats.isComplete, handleKeyPress, handleBackspace, enableBackspace]);
 
   return {
     currentIndex,
@@ -307,6 +378,8 @@ export function useTypingPractice({
     start,
     reset,
     handleKeyPress,
+    handleBackspace,
+    forceComplete,
   };
 }
 

@@ -39,3 +39,6 @@ npm run dev
 - Vite
 - Tailwind CSS
 - Web Audio API
+
+### !important
+Use playwright-cli to test the app at the end if needed

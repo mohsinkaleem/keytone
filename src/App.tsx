@@ -1,22 +1,23 @@
 import { useState, useCallback } from 'react';
-import { audioEngine, type WaveformType } from './audio';
+import { audioEngine, type SoundTheme } from './audio';
 import { StartOverlay, TypingPractice } from './components';
 
 function App() {
   const [isStarted, setIsStarted] = useState(false);
-  const [waveform, setWaveform] = useState<WaveformType>('sine');
+  const [soundTheme, setSoundTheme] = useState<SoundTheme>('piano');
   const [volume, setVolume] = useState(0.5);
 
   // Handle audio initialization
   const handleStart = useCallback(async () => {
     await audioEngine.initialize();
+    audioEngine.setSoundTheme(soundTheme);
     setIsStarted(true);
-  }, []);
+  }, [soundTheme]);
 
-  // Handle waveform change
-  const handleWaveformChange = useCallback((newWaveform: WaveformType) => {
-    setWaveform(newWaveform);
-    audioEngine.setWaveform(newWaveform);
+  // Handle sound theme change
+  const handleSoundThemeChange = useCallback((newTheme: SoundTheme) => {
+    setSoundTheme(newTheme);
+    audioEngine.setSoundTheme(newTheme);
   }, []);
 
   // Handle volume change
@@ -34,8 +35,8 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <TypingPractice
-        waveform={waveform}
-        onWaveformChange={handleWaveformChange}
+        soundTheme={soundTheme}
+        onSoundThemeChange={handleSoundThemeChange}
         volume={volume}
         onVolumeChange={handleVolumeChange}
       />
