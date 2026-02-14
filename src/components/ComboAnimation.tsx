@@ -32,6 +32,7 @@ export function ComboAnimation({
 
   useEffect(() => {
     if (!show || streak <= lastStreak) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing lastStreak ref with prop to detect milestone crossings
       setLastStreak(streak);
       return;
     }
@@ -59,11 +60,12 @@ export function ComboAnimation({
     }
 
     setLastStreak(streak);
-  }, [streak, show, lastStreak, getStreakText]);
+  }, [streak, show, lastStreak]);
 
   // Reset when hidden
   useEffect(() => {
     if (!show) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Resetting animation state when component becomes hidden
       setLastStreak(0);
       setFloatingTexts([]);
     }

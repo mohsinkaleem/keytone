@@ -18,6 +18,7 @@ export function TimedModeOverlay({
 
   // Reset when duration changes or mode resets
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Resetting timer state when duration or reset prop changes; necessary for external-driven state sync
     setTimeLeft(duration);
     setIsExpired(false);
   }, [duration, onReset]);

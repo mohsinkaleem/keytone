@@ -241,36 +241,3 @@ export class MelodicGenerator {
   }
 }
 
-/**
- * Legacy ScaleWalker for backward compatibility
- */
-export class ScaleWalker {
-  private generator: MelodicGenerator;
-
-  constructor(_scaleName: ScaleName = 'C Major Pentatonic') {
-    // Map scales to progressions for compatibility
-    this.generator = new MelodicGenerator('pop');
-  }
-
-  setScale(_scaleName: ScaleName): void {
-    // Ignore - progression handles this now
-  }
-
-  getNextNote(): number {
-    // Return a generic consonant note for backward compatibility
-    const result = this.generator.getNextNote('a');
-    return result.note;
-  }
-
-  reset(): void {
-    this.generator.reset();
-  }
-}
-
-/**
- * Get spacebar sound frequency (low bass thump)
- */
-export function getSpacebarFrequency(): number {
-  // Low C (C2) - 65.41 Hz, provides a nice bass thump
-  return midiToFrequency(36);
-}

@@ -29,6 +29,7 @@ export interface UserStats {
   highestStreak: number;
   highestScore: number;
   sessionsHistory: SessionStats[];
+  characterErrors: Record<string, number>; // Track errors per character
 }
 
 export interface Achievement {
@@ -57,6 +58,7 @@ export interface UserSettings {
   showKeyboard: boolean;
   enableBackspace: boolean;
   scale: string;
+  chordProgression: string;
 }
 
 export interface UserData {
@@ -80,6 +82,7 @@ const DEFAULT_USER_DATA: UserData = {
     highestStreak: 0,
     highestScore: 0,
     sessionsHistory: [],
+    characterErrors: {},
   },
   achievements: [],
   customTexts: [],
@@ -91,16 +94,41 @@ const DEFAULT_USER_DATA: UserData = {
     showKeyboard: true,
     enableBackspace: true,
     scale: 'C Major Pentatonic',
+    chordProgression: 'pop',
   },
 };
+
+// Deep-merge helper: merges source into target, preserving nested defaults
+function deepMerge<T>(target: T, source: Partial<T>): T {
+  const result = { ...target } as T;
+  for (const key of Object.keys(source as object) as Array<keyof T>) {
+    const sourceVal = source[key] as T[keyof T] | undefined;
+    const targetVal = target[key];
+    if (
+      sourceVal !== null &&
+      sourceVal !== undefined &&
+      typeof sourceVal === 'object' &&
+      !Array.isArray(sourceVal) &&
+      typeof targetVal === 'object' &&
+      !Array.isArray(targetVal) &&
+      targetVal !== null
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result[key] = deepMerge(targetVal as any, sourceVal as any) as T[keyof T];
+    } else if (sourceVal !== undefined) {
+      result[key] = sourceVal;
+    }
+  }
+  return result;
+}
 
 // Get user data from localStorage
 export function getUserData(): UserData {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
-      const parsed = JSON.parse(data);
-      return { ...DEFAULT_USER_DATA, ...parsed };
+      const parsed = JSON.parse(data) as Partial<UserData>;
+      return deepMerge(DEFAULT_USER_DATA, parsed);
     }
   } catch (e) {
     console.error('Failed to load user data:', e);
@@ -118,7 +146,10 @@ export function saveUserData(data: UserData): void {
 }
 
 // Update user stats after a session
-export function updateStats(session: Omit<SessionStats, 'id' | 'date'>): UserData {
+export function updateStats(
+  session: Omit<SessionStats, 'id' | 'date'>,
+  characterErrors?: Record<string, number>
+): UserData {
   const data = getUserData();
   const stats = data.stats;
 
@@ -145,6 +176,14 @@ export function updateStats(session: Omit<SessionStats, 'id' | 'date'>): UserDat
   stats.highestWpm = Math.max(stats.highestWpm, session.wpm);
   stats.highestStreak = Math.max(stats.highestStreak, session.maxStreak);
   stats.highestScore = Math.max(stats.highestScore, session.score);
+
+  // Update character errors
+  if (characterErrors) {
+    if (!stats.characterErrors) stats.characterErrors = {};
+    for (const [char, count] of Object.entries(characterErrors)) {
+      stats.characterErrors[char] = (stats.characterErrors[char] || 0) + count;
+    }
+  }
 
   // Add to history (keep last 100 sessions)
   stats.sessionsHistory = [newSession, ...stats.sessionsHistory].slice(0, 100);
@@ -175,8 +214,10 @@ export function removeCustomText(id: string): void {
   saveUserData(data);
 }
 
-// Update settings
-export function updateSettings(settings: Partial<UserSettings>): void {
+// Update settings (type-safe: only accepts valid setting keys and values)
+export function updateSettings<K extends keyof UserSettings>(
+  settings: Pick<UserSettings, K>,
+): void {
   const data = getUserData();
   data.settings = { ...data.settings, ...settings };
   saveUserData(data);

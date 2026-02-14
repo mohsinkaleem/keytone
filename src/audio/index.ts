@@ -1,2 +1,2 @@
 export { audioEngine, default, SOUND_THEMES } from './AudioEngine';
-export type { WaveformType, SoundTheme } from './AudioEngine';
+export type { SoundTheme } from './AudioEngine';

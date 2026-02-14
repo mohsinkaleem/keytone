@@ -14,6 +14,7 @@ export function AchievementPopup({
 
   useEffect(() => {
     if (achievement) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Visibility state drives CSS transition on prop change; legitimate effect-driven animation pattern
       setIsVisible(true);
       const timer = setTimeout(() => {
         setIsVisible(false);

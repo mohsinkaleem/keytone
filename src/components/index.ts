@@ -8,3 +8,7 @@ export { StatsPanel } from './StatsPanel';
 export { CustomTextModal } from './CustomTextModal';
 export { TimedModeOverlay } from './TimedModeOverlay';
 export { VirtualKeyboard } from './VirtualKeyboard';
+export { Header } from './Header';
+export { SettingsPanel } from './SettingsPanel';
+export { CompletionScreen } from './CompletionScreen';
+export { ErrorBoundary } from './ErrorBoundary';

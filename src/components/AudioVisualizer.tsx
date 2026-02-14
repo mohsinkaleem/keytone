@@ -140,7 +140,15 @@ export function AudioVisualizer({
       }
     };
 
+    let isPaused = false;
+
     const draw = () => {
+      // Skip rendering when tab is hidden (Page Visibility API)
+      if (document.hidden || isPaused) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
       switch (style) {
         case 'wave':
           drawWave();
@@ -156,6 +164,11 @@ export function AudioVisualizer({
       animationRef.current = requestAnimationFrame(draw);
     };
 
+    // Pause/resume based on visibility
+    const handleVisibilityChange = () => {
+      isPaused = document.hidden;
+    };
+
     // Handle resize
     const resizeCanvas = () => {
       const parent = canvas.parentElement;
@@ -167,10 +180,12 @@ export function AudioVisualizer({
 
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     draw();
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }

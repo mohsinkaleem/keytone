@@ -180,14 +180,6 @@ class AudioEngine {
   }
 
   /**
-   * Set the waveform type (deprecated - use setSoundTheme instead)
-   */
-  setWaveform(_waveform: WaveformType): void {
-    // Waveform is now determined by sound theme
-    // This method is kept for API compatibility
-  }
-
-  /**
    * Set the sound theme
    */
   setSoundTheme(theme: SoundTheme): void {
@@ -448,6 +440,7 @@ class AudioEngine {
 
   /**
    * Stop a note at the specified frequency
+   * Properly disconnects all audio nodes after release to prevent GC pressure
    */
   stopNote(frequency: number): void {
     const note = this.activeNotes.get(frequency);
@@ -456,7 +449,8 @@ class AudioEngine {
     }
 
     const now = this.audioContext.currentTime;
-    const { oscillators, gainNode } = note;
+    const { oscillators, gainNode, filter } = note;
+    const releaseEnd = now + this.adsr.release + 0.01;
 
     // Cancel any scheduled changes
     gainNode.gain.cancelScheduledValues(now);
@@ -465,12 +459,22 @@ class AudioEngine {
     // Apply release envelope
     gainNode.gain.linearRampToValueAtTime(0, now + this.adsr.release);
 
-    // Schedule oscillator stops
+    // Schedule oscillator stops and disconnect all nodes after release
     oscillators.forEach((osc) => {
-      osc.stop(now + this.adsr.release + 0.01);
+      osc.stop(releaseEnd);
+      osc.onended = () => {
+        osc.disconnect();
+      };
     });
 
-    // Remove from active notes
+    // Schedule cleanup of gain and filter nodes after release
+    const cleanupMs = (this.adsr.release + 0.05) * 1000;
+    setTimeout(() => {
+      gainNode.disconnect();
+      filter?.disconnect();
+    }, cleanupMs);
+
+    // Remove from active notes immediately to allow replaying
     this.activeNotes.delete(frequency);
   }
 }

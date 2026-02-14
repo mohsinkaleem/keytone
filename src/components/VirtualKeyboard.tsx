@@ -16,12 +16,12 @@ const KEYBOARD_ROWS = [
 ];
 
 const SPECIAL_KEY_WIDTHS: Record<string, string> = {
-  'Tab': 'w-12',
-  'Caps': 'w-14',
-  'Shift': 'w-20',
-  'Space': 'w-60',
-  'Enter': 'w-16',
-  'Backspace': 'w-16',
+  'Tab': 'w-10 sm:w-12',
+  'Caps': 'w-12 sm:w-14',
+  'Shift': 'w-16 sm:w-20',
+  'Space': 'w-48 sm:w-64',
+  'Enter': 'w-14 sm:w-16',
+  'Backspace': 'w-14 sm:w-16',
 };
 
 // Map special characters to their shifted versions
@@ -74,9 +74,9 @@ export function VirtualKeyboard({
   const pressedKey = getKeyForChar(lastTypedChar);
 
   const getKeyClass = (key: string) => {
-    const baseClass = 'relative flex items-center justify-center rounded-lg font-medium transition-all duration-100 select-none overflow-hidden';
-    const width = SPECIAL_KEY_WIDTHS[key] || 'w-8 sm:w-10';
-    const height = 'h-8 sm:h-10';
+    const baseClass = 'relative flex items-center justify-center rounded-md font-medium transition-all duration-100 select-none overflow-hidden';
+    const width = SPECIAL_KEY_WIDTHS[key] || 'w-7 sm:w-9';
+    const height = 'h-7 sm:h-9';
     
     // Determine key state
     const isPressed = pressedKey === key;
@@ -148,9 +148,9 @@ export function VirtualKeyboard({
         
         {/* Space bar row */}
         <div className="flex gap-1 items-center">
-          <div className="w-20 sm:w-24" /> {/* Spacer */}
+          <div className="w-16 sm:w-20" /> {/* Spacer */}
           {renderKey('Space', 106)}
-          <div className="w-20 sm:w-24" /> {/* Spacer */}
+          <div className="w-16 sm:w-20" /> {/* Spacer */}
         </div>
       </div>
       

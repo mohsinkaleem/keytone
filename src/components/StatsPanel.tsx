@@ -1,15 +1,7 @@
 import { useState } from 'react';
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from 'recharts';
 import type { UserStats, SessionStats } from '../utils/storage';
 import { getAchievementProgress } from '../utils/achievements';
+import { CanvasAreaChart } from './CanvasAreaChart';
 
 interface StatsPanelProps {
   stats: UserStats;
@@ -106,61 +98,25 @@ export function StatsPanel({
                 />
               </div>
 
+              {/* Problem Keys Heatmap */}
+              {stats.characterErrors && Object.keys(stats.characterErrors).length > 0 && (
+                <div className="p-6 bg-gray-800/30 rounded-2xl border border-gray-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-4">Problem Keys</h3>
+                  <ProblemKeysHeatmap characterErrors={stats.characterErrors} />
+                </div>
+              )}
+
               {stats.sessionsHistory.length > 1 && (
                 <div className="p-6 bg-gray-800/30 rounded-2xl border border-gray-700/50">
                   <h3 className="text-lg font-semibold text-white mb-4">WPM Progress (Last 10 Sessions)</h3>
-                  <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart
-                        data={stats.sessionsHistory.slice(-10).map((s, i) => ({
-                          name: i + 1,
-                          wpm: s.wpm,
-                          fullDate: new Date(s.date).toLocaleDateString(),
-                        }))}
-                      >
-                        <defs>
-                          <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                        <XAxis
-                          dataKey="name"
-                          stroke="#9ca3af"
-                          fontSize={12}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis
-                          stroke="#9ca3af"
-                          fontSize={12}
-                          tickLine={false}
-                          axisLine={false}
-                          tickFormatter={(value) => `${value}`}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#1f2937',
-                            border: '1px solid #374151',
-                            borderRadius: '8px',
-                            color: '#fff',
-                          }}
-                          itemStyle={{ color: '#818cf8' }}
-                          labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="wpm"
-                          stroke="#818cf8"
-                          strokeWidth={3}
-                          fillOpacity={1}
-                          fill="url(#colorWpm)"
-                          animationDuration={1500}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <CanvasAreaChart
+                    data={stats.sessionsHistory.slice(-10).map((s, i) => ({
+                      name: i + 1,
+                      wpm: s.wpm,
+                      fullDate: new Date(s.date).toLocaleDateString(),
+                    }))}
+                    height={250}
+                  />
                 </div>
               )}
             </div>
@@ -296,6 +252,55 @@ function StatCard({
         {value}
       </div>
       <div className="text-sm text-gray-500">{label}</div>
+    </div>
+  );
+}
+
+// Problem Keys Heatmap Component
+function ProblemKeysHeatmap({ characterErrors }: { characterErrors: Record<string, number> }) {
+  // Get top problematic characters sorted by error count
+  const sortedErrors = Object.entries(characterErrors)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 20); // Top 20 problem keys
+
+  if (sortedErrors.length === 0) {
+    return (
+      <div className="text-center text-gray-500 py-4">
+        No errors yet - keep up the great work!
+      </div>
+    );
+  }
+
+  const maxErrors = sortedErrors[0][1];
+
+  return (
+    <div className="space-y-2">
+      {sortedErrors.map(([char, count]) => {
+        const intensity = count / maxErrors;
+        const displayChar = char === ' ' ? '␣ (space)' : char;
+        
+        return (
+          <div key={char} className="flex items-center gap-3">
+            <div className="w-16 text-center">
+              <span className="font-mono text-lg text-white bg-gray-700 px-3 py-1 rounded">
+                {displayChar}
+              </span>
+            </div>
+            <div className="flex-1 h-8 bg-gray-700 rounded-lg overflow-hidden relative">
+              <div
+                className="h-full transition-all"
+                style={{
+                  width: `${(intensity * 100)}%`,
+                  backgroundColor: `hsl(${360 - intensity * 120}, 80%, 50%)`,
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-end px-3 text-white text-sm font-medium">
+                {count} error{count !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
