@@ -12,6 +12,7 @@ import { Header } from './Header';
 import { SettingsPanel } from './SettingsPanel';
 import { CompletionScreen } from './CompletionScreen';
 import { useTypingPractice } from '../hooks/useTypingPractice';
+import { useAudio } from '../contexts/useAudio';
 import {
   CATEGORIES,
   getRandomText,
@@ -207,8 +208,16 @@ export function TypingPractice() {
   };
 
   // Keyboard shortcuts
+  const { toggleMute, isMuted } = useAudio();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle mute with Alt+M
+      if (e.altKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        toggleMute(!isMuted);
+      }
+
       if (e.key === 'Tab' && (stats.isComplete || !isStarted)) {
         e.preventDefault();
         handleNextText();
@@ -221,7 +230,7 @@ export function TypingPractice() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stats.isComplete, isStarted, handleNextText, reset]);
+  }, [stats.isComplete, isStarted, handleNextText, reset, isMuted, toggleMute]);
 
   // Completion screen
   if (stats.isComplete) {

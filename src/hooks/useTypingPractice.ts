@@ -14,6 +14,12 @@ export interface TypingStats {
   elapsedTime: number;
   isComplete: boolean;
   characterErrors: Record<string, number>; // Track errors per character
+  history: Array<{
+    time: number;
+    wpm: number;
+    rawWpm: number;
+    isError: boolean;
+  }>;
 }
 
 interface UseTypingPracticeOptions {
@@ -74,6 +80,7 @@ const INITIAL_STATS: TypingStats = {
   elapsedTime: 0,
   isComplete: false,
   characterErrors: {},
+  history: [],
 };
 
 export function useTypingPractice({
@@ -88,6 +95,7 @@ export function useTypingPractice({
   const [isStarted, setIsStarted] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [stats, setStats] = useState<TypingStats>({ ...INITIAL_STATS });
+  const [lastErrorIndex, setLastErrorIndex] = useState<number | null>(null);
 
   const melodicGeneratorRef = useRef(new MelodicGenerator(chordProgression));
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -149,7 +157,6 @@ export function useTypingPractice({
     });
   };
 
-  // Calculate WPM using the ref-based startTime (avoids stale closure)
   const calculateWpm = (correctChars: number): number => {
     const start = startTimeRef.current;
     if (!start) return 0;
@@ -157,6 +164,54 @@ export function useTypingPractice({
     const minutes = elapsed / 60;
     return minutes > 0 ? Math.round(correctChars / 5 / minutes) : 0;
   };
+
+  // Timer for elapsed time and history recording
+  useEffect(() => {
+    if (isStarted && !stats.isComplete) {
+      timerRef.current = setInterval(() => {
+        const start = startTimeRef.current;
+        if (!start) return;
+        
+        const now = Date.now();
+        const seconds = (now - start) / 1000;
+        setElapsedTime(seconds);
+
+        // Record history every second
+        if (Math.floor(seconds) > stats.history.length) {
+          setStats((prev) => {
+            const minutes = seconds / 60;
+            if (minutes <= 0) return prev;
+            
+            const currentWpm = Math.round(prev.correctChars / 5 / minutes);
+            const rawWpm = Math.round(prev.totalChars / 5 / minutes);
+            
+            const hasError = lastErrorIndex !== null;
+            if (hasError) setLastErrorIndex(null);
+
+            return {
+              ...prev,
+              elapsedTime: seconds,
+              history: [
+                ...prev.history,
+                {
+                  time: Math.round(seconds),
+                  wpm: currentWpm,
+                  rawWpm: rawWpm,
+                  isError: hasError,
+                },
+              ],
+            };
+          });
+        }
+      }, 100); // 100ms for smooth UI updates
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isStarted, stats.isComplete, lastErrorIndex, stats.history.length]);
 
   // Handle key press
   const handleKeyPress = (key: string) => {
@@ -184,6 +239,7 @@ export function useTypingPractice({
       playCorrectSound(key);
     } else {
       playErrorSound();
+      setLastErrorIndex(currentIndex);
     }
 
     // Calculate new stats
@@ -244,6 +300,7 @@ export function useTypingPractice({
         elapsedTime: currentElapsed,
         isComplete,
         characterErrors: newCharErrors,
+        history: prev.history,
       };
     });
 
@@ -292,6 +349,7 @@ export function useTypingPractice({
           totalChars: Math.max(0, newTotal),
           currentStreak: 0,
           accuracy,
+          history: prevStats.history,
         };
       });
 
@@ -320,28 +378,10 @@ export function useTypingPractice({
         ...prev,
         score: finalScore,
         isComplete: true,
+        history: prev.history,
       };
     });
   }, [stats.isComplete]);
-
-  // Timer effect — updates both elapsedTime and stats.elapsedTime
-  useEffect(() => {
-    if (isStarted && startTimeRef.current && !stats.isComplete) {
-      timerRef.current = setInterval(() => {
-        const start = startTimeRef.current;
-        if (start) {
-          const elapsed = (Date.now() - start) / 1000;
-          setElapsedTime(elapsed);
-        }
-      }, 100);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isStarted, stats.isComplete]);
 
   // Handle completion side effects
   useEffect(() => {

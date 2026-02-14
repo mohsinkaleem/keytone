@@ -71,7 +71,7 @@ export function SettingsPanel({
 
   return (
     <div className="px-6 py-3 bg-gray-900 border-b border-gray-800 space-y-4 shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+      <div className="flex flex-wrap gap-x-8 gap-y-4 items-start">
         {/* Sound Theme */}
         <div className="space-y-1.5">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Sound Theme</span>

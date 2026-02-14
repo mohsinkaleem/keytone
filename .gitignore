@@ -25,3 +25,5 @@ dist-ssr
 node_modules
 .playwright-cli
 .github
+
+*.png

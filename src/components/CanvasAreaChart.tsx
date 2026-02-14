@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 interface DataPoint {
   name: number;
   wpm: number;
+  rawWpm?: number;
+  isError?: boolean;
   fullDate?: string;
 }
 
@@ -10,9 +12,17 @@ interface CanvasAreaChartProps {
   data: DataPoint[];
   width?: number;
   height?: number;
+  showRawWpm?: boolean;
+  showErrors?: boolean;
 }
 
-export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaChartProps) {
+export function CanvasAreaChart({ 
+  data, 
+  width = 600, 
+  height = 250,
+  showRawWpm = false,
+  showErrors = false
+}: CanvasAreaChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -48,13 +58,17 @@ export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaC
     const chartWidth = actualWidth - padding.left - padding.right;
     const chartHeight = actualHeight - padding.top - padding.bottom;
 
-    const maxWpm = Math.max(...data.map(d => d.wpm), 60);
-    const minWpm = Math.max(0, Math.min(...data.map(d => d.wpm)) - 10);
+    const allWpms = data.map(d => d.wpm);
+    if (showRawWpm) {
+      data.forEach(d => { if (d.rawWpm) allWpms.push(d.rawWpm); });
+    }
+    const maxWpm = Math.max(...allWpms, 60);
+    const minWpm = Math.max(0, Math.min(...allWpms) - 10);
     const wpmRange = maxWpm - minWpm;
 
     // Helper functions
     const getX = (index: number) => padding.left + (index / (data.length - 1 || 1)) * chartWidth;
-    const getY = (wpm: number) => padding.top + chartHeight - ((wpm - minWpm) / wpmRange) * chartHeight;
+    const getY = (wpm: number) => padding.top + chartHeight - ((wpm - minWpm) / (wpmRange || 1)) * chartHeight;
 
     // Draw grid
     ctx.strokeStyle = '#374151';
@@ -73,7 +87,23 @@ export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaC
 
     ctx.setLineDash([]);
 
-    // Draw area gradient
+    // Draw Raw WPM Line if requested
+    if (showRawWpm) {
+      ctx.strokeStyle = '#4b5563'; // gray-600
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      data.forEach((point, index) => {
+        const x = getX(index);
+        const y = getY(point.rawWpm || point.wpm);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw area gradient for primary WPM
     const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
     gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
     gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
@@ -105,26 +135,42 @@ export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaC
     });
     ctx.stroke();
 
-    // Draw points
+    // Draw points and errors
     data.forEach((point, index) => {
       const x = getX(index);
       const y = getY(point.wpm);
       
-      ctx.fillStyle = '#818cf8';
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
+      if (showErrors && point.isError) {
+        // Draw error marker
+        ctx.fillStyle = '#ef4444'; // red-500
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('×', x, y - 8);
+        
+        ctx.strokeStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#818cf8';
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
 
     // Draw axes labels
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '12px sans-serif';
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
 
-    // X-axis labels
+    // X-axis labels (only every few if too many points)
+    const labelStep = Math.max(1, Math.floor(data.length / 10));
     data.forEach((point, index) => {
-      const x = getX(index);
-      ctx.fillText(point.name.toString(), x, padding.top + chartHeight + 20);
+      if (index % labelStep === 0 || index === data.length - 1) {
+        const x = getX(index);
+        ctx.fillText(point.name.toString() + 's', x, padding.top + chartHeight + 20);
+      }
     });
 
     // Y-axis labels
@@ -132,15 +178,15 @@ export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaC
     ctx.textBaseline = 'middle';
     for (let i = 0; i <= gridLines; i++) {
       const y = padding.top + (chartHeight / gridLines) * i;
-      const wpm = Math.round(maxWpm - (wpmRange / gridLines) * i);
-      ctx.fillText(wpm.toString(), padding.left - 10, y);
+      const wpmValue = Math.round(maxWpm - (wpmRange / gridLines) * i);
+      ctx.fillText(wpmValue.toString(), padding.left - 10, y);
     }
 
     // Axis labels
     ctx.fillStyle = '#9ca3af';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Session', actualWidth / 2, actualHeight - 5);
+    ctx.fillText('Time (seconds)', actualWidth / 2, actualHeight - 5);
     
     ctx.save();
     ctx.translate(15, actualHeight / 2);
@@ -148,7 +194,7 @@ export function CanvasAreaChart({ data, width = 600, height = 250 }: CanvasAreaC
     ctx.fillText('WPM', 0, 0);
     ctx.restore();
 
-  }, [data, width, height]);
+  }, [data, width, height, showRawWpm, showErrors]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: `${height}px` }}>
