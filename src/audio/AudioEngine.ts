@@ -57,13 +57,6 @@ class AudioEngine {
   }
 
   /**
-   * Check if the audio engine is initialized and ready
-   */
-  isReady(): boolean {
-    return this.audioContext !== null && this.audioContext.state === 'running';
-  }
-
-  /**
    * Set the master volume (0-1)
    */
   setVolume(volume: number): void {
@@ -76,31 +69,10 @@ class AudioEngine {
   }
 
   /**
-   * Get current volume
-   */
-  getVolume(): number {
-    return this.masterGain?.gain.value ?? 0.5;
-  }
-
-  /**
    * Set the waveform type
    */
   setWaveform(waveform: WaveformType): void {
     this.waveform = waveform;
-  }
-
-  /**
-   * Get current waveform
-   */
-  getWaveform(): WaveformType {
-    return this.waveform;
-  }
-
-  /**
-   * Set ADSR envelope parameters
-   */
-  setADSR(config: Partial<ADSRConfig>): void {
-    this.adsr = { ...this.adsr, ...config };
   }
 
   /**
@@ -170,22 +142,6 @@ class AudioEngine {
 
     // Remove from active notes
     this.activeNotes.delete(frequency);
-  }
-
-  /**
-   * Stop all currently playing notes
-   */
-  stopAllNotes(): void {
-    for (const frequency of this.activeNotes.keys()) {
-      this.stopNote(frequency);
-    }
-  }
-
-  /**
-   * Get the number of currently active notes
-   */
-  getActiveNoteCount(): number {
-    return this.activeNotes.size;
   }
 }
 

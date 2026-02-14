@@ -83,7 +83,11 @@ export function useTypingPractice({
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const completionHandledRef = useRef(false);
   const autoStartRef = useRef(autoStart);
-  autoStartRef.current = autoStart;
+
+  // Keep autoStartRef in sync
+  useEffect(() => {
+    autoStartRef.current = autoStart;
+  }, [autoStart]);
 
   // Calculate score multiplier based on streak
   const getStreakMultiplier = useCallback((streak: number): number => {
@@ -174,6 +178,19 @@ export function useTypingPractice({
         const accuracy = newTotal > 0 ? Math.round((newCorrect / newTotal) * 100) : 100;
 
         const isComplete = currentIndex + 1 >= text.length;
+        let finalScore = newScore;
+
+        if (isComplete) {
+          // Accuracy bonus
+          if (accuracy >= 95) finalScore += SCORE_CONFIG.accuracyBonus[95];
+          else if (accuracy >= 90) finalScore += SCORE_CONFIG.accuracyBonus[90];
+          else if (accuracy >= 85) finalScore += SCORE_CONFIG.accuracyBonus[85];
+
+          // WPM bonus
+          if (wpm >= 80) finalScore += SCORE_CONFIG.wpmBonus[80];
+          else if (wpm >= 60) finalScore += SCORE_CONFIG.wpmBonus[60];
+          else if (wpm >= 40) finalScore += SCORE_CONFIG.wpmBonus[40];
+        }
 
         return {
           correctChars: newCorrect,
@@ -183,7 +200,7 @@ export function useTypingPractice({
           maxStreak: newMaxStreak,
           wpm,
           accuracy,
-          score: newScore,
+          score: finalScore,
           elapsedTime,
           isComplete,
         };
@@ -250,29 +267,14 @@ export function useTypingPractice({
     };
   }, [isStarted, startTime, stats.isComplete]);
 
-  // Handle completion
+  // Handle completion side effects
   useEffect(() => {
     if (stats.isComplete && !completionHandledRef.current) {
       completionHandledRef.current = true;
-      
-      // Calculate final bonuses
-      let finalScore = stats.score;
-
-      // Accuracy bonus
-      if (stats.accuracy >= 95) finalScore += SCORE_CONFIG.accuracyBonus[95];
-      else if (stats.accuracy >= 90) finalScore += SCORE_CONFIG.accuracyBonus[90];
-      else if (stats.accuracy >= 85) finalScore += SCORE_CONFIG.accuracyBonus[85];
-
-      // WPM bonus
-      if (stats.wpm >= 80) finalScore += SCORE_CONFIG.wpmBonus[80];
-      else if (stats.wpm >= 60) finalScore += SCORE_CONFIG.wpmBonus[60];
-      else if (stats.wpm >= 40) finalScore += SCORE_CONFIG.wpmBonus[40];
-
-      setStats((prev) => ({ ...prev, score: finalScore }));
       playCompletionSound();
-      onComplete?.({ ...stats, score: finalScore });
+      onComplete?.(stats);
     }
-  }, [stats.isComplete, stats.accuracy, stats.wpm, stats.score, onComplete, playCompletionSound]);
+  }, [stats, onComplete, playCompletionSound]);
 
   // Keyboard event listener
   useEffect(() => {
