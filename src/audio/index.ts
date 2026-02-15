@@ -1,2 +1,2 @@
-export { audioEngine, default, SOUND_THEMES } from './AudioEngine';
-export type { SoundTheme } from './AudioEngine';
+export { audioEngine, default, SOUND_THEMES, TYPEWRITER_VARIANTS } from './AudioEngine';
+export type { SoundTheme, TypewriterVariant } from './AudioEngine';

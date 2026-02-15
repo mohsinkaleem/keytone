@@ -15,7 +15,7 @@ import { UniverseSelector } from './UniverseSelector';
 import { UniverseCreationModal } from './UniverseCreationModal';
 import { useTypingPractice } from '../hooks/useTypingPractice';
 import { useAudio } from '../contexts/useAudio';
-import { useUniverse } from '../contexts/UniverseContext';
+import { useUniverse } from '../contexts/useUniverse';
 import {
   CATEGORIES,
   getRandomText,
@@ -131,7 +131,6 @@ export function TypingPractice() {
     text: selectedText.text,
     autoStart: true,
     enableBackspace,
-    timedMode,
     chordProgression,
     onComplete: handleComplete,
   });
@@ -139,7 +138,6 @@ export function TypingPractice() {
   // Process achievement queue
   useEffect(() => {
     if (achievementQueue.length > 0 && !currentAchievement) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sequentially dequeuing achievements for popup display; queue-processing pattern requires effect-driven state sync
       setCurrentAchievement(achievementQueue[0]);
       setAchievementQueue((prev) => prev.slice(1));
     }

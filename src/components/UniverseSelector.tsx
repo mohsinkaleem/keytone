@@ -2,7 +2,7 @@
  * Universe Selector - Shows available universes and allows switching
  */
 
-import { useUniverse } from '../contexts/UniverseContext';
+import { useUniverse } from '../contexts/useUniverse';
 
 interface UniverseSelectorProps {
   onCreateNew: () => void;

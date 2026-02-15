@@ -26,7 +26,6 @@ interface UseTypingPracticeOptions {
   text: string;
   autoStart?: boolean;
   enableBackspace?: boolean;
-  timedMode?: number | null;
   chordProgression?: ProgressionName;
   onComplete?: (stats: TypingStats) => void;
 }
@@ -128,6 +127,12 @@ export function useTypingPractice({
   // Play sound for correct key with character-aware note selection
   const playCorrectSound = (char: string) => {
     const { note, velocity, isSpace } = melodicGeneratorRef.current.getNextNote(char);
+    const isTypewriterTheme = audioEngine.getSoundTheme() === 'typewriter';
+
+    if (isTypewriterTheme) {
+      audioEngine.playTypewriterKeySound({ isSpace, velocity });
+      return;
+    }
 
     if (isSpace) {
       audioEngine.playSpacebarSound(velocity);
@@ -140,6 +145,11 @@ export function useTypingPractice({
 
   // Play sound for incorrect key
   const playErrorSound = () => {
+    if (audioEngine.getSoundTheme() === 'typewriter') {
+      audioEngine.playTypewriterKeySound({ isError: true, velocity: 0.75 });
+      return;
+    }
+
     ERROR_FREQUENCIES.forEach((freq) => {
       audioEngine.playNote(freq);
       setTimeout(() => audioEngine.stopNote(freq), 100);

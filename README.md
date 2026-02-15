@@ -19,7 +19,8 @@ A typing practice app that turns your keystrokes into music. Every correct chara
 - Correct keystrokes play melodic notes
 - Errors play discordant sounds
 - Completion triggers a celebratory chord
-- **Sound Themes**: Piano, Synth, Retro, Marimba, Bells, Strings
+- **Sound Themes**: Piano, Synth, Retro, Marimba, Bells, Strings, Typewriter
+- **Typewriter Variants**: Classic, Thock, Clicky (with dedicated spacebar thud)
 - **Musical Harmony**: Choose between Pop, Classic, Jazz, Blues, or Ambient progressions
 
 ### User Interface

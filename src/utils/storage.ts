@@ -55,6 +55,7 @@ export interface CustomText {
 
 export interface UserSettings {
   soundTheme: string;
+  typewriterVariant: string;
   volume: number;
   waveform: string;
   showVisualizer: boolean;
@@ -96,6 +97,7 @@ const DEFAULT_USER_DATA: UserData = {
   customTexts: [],
   settings: {
     soundTheme: 'piano',
+    typewriterVariant: 'classic',
     volume: 0.5,
     waveform: 'sine',
     showVisualizer: true,

@@ -1,21 +1,41 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
-import { audioEngine, type SoundTheme } from '../audio';
+import {
+  audioEngine,
+  SOUND_THEMES,
+  TYPEWRITER_VARIANTS,
+  type SoundTheme,
+  type TypewriterVariant,
+} from '../audio';
 import { AudioCtx } from './AudioContextDef';
 import type { AudioContextValue } from './AudioContextDef';
+import { getSettings } from '../utils/storage';
 
 interface AudioState {
   soundTheme: SoundTheme;
+  typewriterVariant: TypewriterVariant;
   volume: number;
   isMuted: boolean;
   isInitialized: boolean;
 }
 
 export function AudioProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AudioState>({
-    soundTheme: 'piano',
-    volume: 0.5,
-    isMuted: false,
-    isInitialized: false,
+  const [state, setState] = useState<AudioState>(() => {
+    const settings = getSettings();
+    const knownThemes = new Set<SoundTheme>(SOUND_THEMES.map((t) => t.value));
+    const knownTypewriterVariants = new Set<TypewriterVariant>(TYPEWRITER_VARIANTS.map((v) => v.value));
+    const storedTheme = settings.soundTheme as SoundTheme;
+    const storedTypewriterVariant = settings.typewriterVariant as TypewriterVariant;
+    const storedVolume = typeof settings.volume === 'number' ? settings.volume : 0.5;
+
+    return {
+      soundTheme: knownThemes.has(storedTheme) ? storedTheme : 'piano',
+      typewriterVariant: knownTypewriterVariants.has(storedTypewriterVariant)
+        ? storedTypewriterVariant
+        : 'classic',
+      volume: Math.max(0, Math.min(1, storedVolume)),
+      isMuted: false,
+      isInitialized: false,
+    };
   });
 
   // Initialize audio on first user interaction
@@ -25,13 +45,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     try {
       await audioEngine.initialize();
       audioEngine.setSoundTheme(state.soundTheme);
+      audioEngine.setTypewriterVariant(state.typewriterVariant);
       audioEngine.setVolume(state.volume);
       audioEngine.setMuted(state.isMuted);
       setState((prev) => ({ ...prev, isInitialized: true }));
     } catch (error) {
       console.error('Failed to initialize audio:', error);
     }
-  }, [state.isInitialized, state.soundTheme, state.volume, state.isMuted]);
+  }, [state.isInitialized, state.soundTheme, state.typewriterVariant, state.volume, state.isMuted]);
 
   useEffect(() => {
     window.addEventListener('keydown', initAudio);
@@ -48,6 +69,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     audioEngine.setSoundTheme(theme);
   }, []);
 
+  const setTypewriterVariant = useCallback((variant: TypewriterVariant) => {
+    setState((prev) => ({ ...prev, typewriterVariant: variant }));
+    audioEngine.setTypewriterVariant(variant);
+  }, []);
+
   const setVolume = useCallback((volume: number) => {
     setState((prev) => ({ ...prev, volume }));
     audioEngine.setVolume(volume);
@@ -61,6 +87,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const value: AudioContextValue = {
     ...state,
     setSoundTheme,
+    setTypewriterVariant,
     setVolume,
     toggleMute,
   };

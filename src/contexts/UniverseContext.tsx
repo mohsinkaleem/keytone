@@ -2,11 +2,12 @@
  * Universe Context - Global state management for universes
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import type { Universe, Excerpt } from '../types/universe';
 import { BUILT_IN_UNIVERSE_IDS } from '../types/universe';
 import { BUILT_IN_UNIVERSES, CODING_EXCERPTS, getUniverseById } from '../data/defaultUniverses';
 import { TYPING_TEXTS } from '../utils/typingTexts';
+import { UniverseCtx } from './UniverseContextDef';
 import {
   getUserData,
   setActiveUniverse as saveActiveUniverse,
@@ -16,22 +17,6 @@ import {
   getExcerptsForUniverse,
   addCustomExcerpts,
 } from '../utils/storage';
-
-interface UniverseContextType {
-  // State
-  activeUniverse: Universe;
-  allUniverses: Universe[];
-  currentExcerpts: Excerpt[];
-  
-  // Actions
-  switchUniverse: (universeId: string) => void;
-  createUniverse: (universe: Omit<Universe, 'id' | 'createdAt' | 'isBuiltIn'>, excerpts?: Omit<Excerpt, 'id'>[]) => Universe;
-  removeUniverse: (universeId: string) => void;
-  getRandomExcerpt: (excludeId?: string) => Excerpt | null;
-  getNextExcerpt: (currentId?: string) => Excerpt | null;
-}
-
-const UniverseContext = createContext<UniverseContextType | null>(null);
 
 // Convert existing TYPING_TEXTS to Excerpt format
 function convertTypingTextsToExcerpts(): Excerpt[] {
@@ -47,31 +32,33 @@ function convertTypingTextsToExcerpts(): Excerpt[] {
   }));
 }
 
+function getExcerptsForActiveUniverse(activeUniverseId: string): Excerpt[] {
+  if (activeUniverseId === BUILT_IN_UNIVERSE_IDS.GENERAL) {
+    return convertTypingTextsToExcerpts();
+  }
+  if (activeUniverseId === BUILT_IN_UNIVERSE_IDS.CODING) {
+    return CODING_EXCERPTS;
+  }
+  return getExcerptsForUniverse(activeUniverseId);
+}
+
 export function UniverseProvider({ children }: { children: ReactNode }) {
-  const [activeUniverseId, setActiveUniverseId] = useState<string>(() => 
+  const [activeUniverseId, setActiveUniverseId] = useState<string>(() =>
     getUserData().activeUniverseId || BUILT_IN_UNIVERSE_IDS.GENERAL
   );
   const [customUniverses, setCustomUniverses] = useState<Universe[]>(() => getCustomUniverses());
-  const [currentExcerpts, setCurrentExcerpts] = useState<Excerpt[]>([]);
-
-  const allUniverses = [...BUILT_IN_UNIVERSES, ...customUniverses];
-  const activeUniverse = getUniverseById(activeUniverseId, customUniverses) || BUILT_IN_UNIVERSES[0];
-
-  // Load excerpts when universe changes
-  useEffect(() => {
-    let excerpts: Excerpt[];
-
-    if (activeUniverseId === BUILT_IN_UNIVERSE_IDS.GENERAL) {
-      excerpts = convertTypingTextsToExcerpts();
-    } else if (activeUniverseId === BUILT_IN_UNIVERSE_IDS.CODING) {
-      excerpts = CODING_EXCERPTS;
-    } else {
-      // Custom universe
-      excerpts = getExcerptsForUniverse(activeUniverseId);
-    }
-
-    setCurrentExcerpts(excerpts);
-  }, [activeUniverseId]);
+  const allUniverses = useMemo(
+    () => [...BUILT_IN_UNIVERSES, ...customUniverses],
+    [customUniverses]
+  );
+  const activeUniverse = useMemo(
+    () => getUniverseById(activeUniverseId, customUniverses) || BUILT_IN_UNIVERSES[0],
+    [activeUniverseId, customUniverses]
+  );
+  const currentExcerpts = useMemo(
+    () => getExcerptsForActiveUniverse(activeUniverseId),
+    [activeUniverseId]
+  );
 
   const switchUniverse = useCallback((universeId: string) => {
     const universe = getUniverseById(universeId, customUniverses);
@@ -132,7 +119,7 @@ export function UniverseProvider({ children }: { children: ReactNode }) {
   }, [activeUniverse.type, currentExcerpts, getRandomExcerpt]);
 
   return (
-    <UniverseContext.Provider
+    <UniverseCtx.Provider
       value={{
         activeUniverse,
         allUniverses,
@@ -145,14 +132,6 @@ export function UniverseProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </UniverseContext.Provider>
+    </UniverseCtx.Provider>
   );
-}
-
-export function useUniverse() {
-  const context = useContext(UniverseContext);
-  if (!context) {
-    throw new Error('useUniverse must be used within a UniverseProvider');
-  }
-  return context;
 }

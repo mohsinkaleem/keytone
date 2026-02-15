@@ -1,4 +1,4 @@
-import { SOUND_THEMES } from '../audio';
+import { SOUND_THEMES, TYPEWRITER_VARIANTS } from '../audio';
 import { useAudio } from '../contexts/useAudio';
 import type { UserSettings } from '../utils/storage';
 import type { ProgressionName } from '../utils/noteUtils';
@@ -49,14 +49,37 @@ export function SettingsPanel({
   onSettingsChange,
   onReset,
 }: SettingsPanelProps) {
-  const { soundTheme, setSoundTheme, volume, setVolume, isMuted, toggleMute } = useAudio();
+  const {
+    soundTheme,
+    setSoundTheme,
+    typewriterVariant,
+    setTypewriterVariant,
+    volume,
+    setVolume,
+    isMuted,
+    toggleMute,
+  } = useAudio();
+
+  const previewTypewriter = () => {
+    [false, false, true].forEach((isSpace, i) => {
+      setTimeout(() => {
+        audioEngine.playTypewriterKeySound({ isSpace, velocity: 0.85 });
+      }, i * 65);
+    });
+  };
 
   // Play a preview note when changing sound theme
   const handleSoundThemeChange = async (theme: typeof soundTheme) => {
     setSoundTheme(theme);
+    onSettingsChange('soundTheme', theme);
     
     // Initialize audio if not already done
     await audioEngine.initialize();
+
+    if (theme === 'typewriter') {
+      previewTypewriter();
+      return;
+    }
     
     // Play a preview C major chord (C-E-G)
     const previewNotes = [60, 64, 67].map(midiToFrequency); // C4, E4, G4
@@ -67,6 +90,13 @@ export function SettingsPanel({
         setTimeout(() => audioEngine.stopNote(freq), 300);
       }, i * 50);
     });
+  };
+
+  const handleTypewriterVariantChange = async (variant: typeof typewriterVariant) => {
+    setTypewriterVariant(variant);
+    onSettingsChange('typewriterVariant', variant);
+    await audioEngine.initialize();
+    previewTypewriter();
   };
 
   return (
@@ -93,6 +123,29 @@ export function SettingsPanel({
             ))}
           </div>
         </div>
+
+        {soundTheme === 'typewriter' && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Typewriter Tone</span>
+            <div className="flex bg-gray-800/50 rounded-lg p-1 w-fit">
+              {TYPEWRITER_VARIANTS.map((variant) => (
+                <button
+                  key={variant.value}
+                  onClick={() => handleTypewriterVariantChange(variant.value)}
+                  title={variant.label}
+                  className={`px-3 py-1.5 flex items-center gap-1.5 rounded-md text-sm transition-all ${
+                    typewriterVariant === variant.value
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <span className="text-base">{variant.icon}</span>
+                  <span className="hidden xl:inline font-medium">{variant.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Volume & Mute */}
         <div className="space-y-1.5">
@@ -121,7 +174,11 @@ export function SettingsPanel({
               max="1"
               step="0.05"
               value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              onChange={(e) => {
+                const nextVolume = parseFloat(e.target.value);
+                setVolume(nextVolume);
+                onSettingsChange('volume', nextVolume);
+              }}
               disabled={isMuted}
               aria-label="Volume control"
               className={`w-28 h-1.5 rounded-lg appearance-none cursor-pointer accent-indigo-500 ${

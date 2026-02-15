@@ -39,7 +39,7 @@ export async function parseEpubFile(file: File): Promise<string> {
   }).filter((href): href is string => !!href);
 
   // 3. Extract text from each file in spine order
-  let fullTextChunks: string[] = [];
+  const fullTextChunks: string[] = [];
   
   for (const href of spine) {
     // Handling relative paths correctly
