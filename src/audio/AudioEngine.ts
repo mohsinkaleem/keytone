@@ -402,102 +402,6 @@ class AudioEngine {
   }
 
   /**
-   * Spacebar "dhab" for typewriter mode.
-   * Heavier low-end than regular key clicks to make spacebar distinct.
-   */
-  private playTypewriterSpacebarThud(
-    config: TypewriterVariantConfig,
-    velocity: number,
-    isError: boolean,
-  ): void {
-    if (!this.audioContext || !this.masterGain) {
-      return;
-    }
-
-    const ctx = this.audioContext;
-    const now = ctx.currentTime;
-    const release = config.spaceThudRelease;
-    const attack = 0.002;
-
-    // Broad low-frequency thud.
-    const thudOsc = ctx.createOscillator();
-    thudOsc.type = isError ? 'sawtooth' : 'triangle';
-    thudOsc.frequency.setValueAtTime(config.spaceThudStart, now);
-    thudOsc.frequency.exponentialRampToValueAtTime(config.spaceThudEnd, now + release * 0.8);
-    const thudGain = ctx.createGain();
-    thudGain.gain.setValueAtTime(0.0001, now);
-    thudGain.gain.linearRampToValueAtTime(velocity * config.spaceThudGain, now + attack);
-    thudGain.gain.exponentialRampToValueAtTime(0.0001, now + release);
-    thudOsc.connect(thudGain);
-    thudGain.connect(this.masterGain);
-
-    // Metal bar noise tail.
-    const noiseBuffer = this.createNoiseBuffer(release + 0.03);
-    if (!noiseBuffer) return;
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = isError ? 'highpass' : 'bandpass';
-    noiseFilter.frequency.value = config.spaceNoiseFreq;
-    noiseFilter.Q.value = config.spaceNoiseQ;
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.0001, now);
-    noiseGain.gain.linearRampToValueAtTime(velocity * config.spaceNoiseGain, now + attack);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + release);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
-
-    // Initial click transient.
-    const click = ctx.createOscillator();
-    click.type = 'square';
-    click.frequency.setValueAtTime(config.spaceClickStart, now);
-    click.frequency.exponentialRampToValueAtTime(config.spaceThudEnd * 8, now + 0.016);
-    const clickGain = ctx.createGain();
-    clickGain.gain.setValueAtTime(velocity * config.spaceClickGain, now);
-    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
-    click.connect(clickGain);
-    clickGain.connect(this.masterGain);
-
-    // Very low resonant tail that reads as "dhab".
-    const tail = ctx.createOscillator();
-    tail.type = 'sine';
-    tail.frequency.setValueAtTime(config.spaceTailStart, now);
-    tail.frequency.exponentialRampToValueAtTime(config.spaceTailEnd, now + release * 0.9);
-    const tailGain = ctx.createGain();
-    tailGain.gain.setValueAtTime(velocity * config.spaceTailGain, now + 0.006);
-    tailGain.gain.exponentialRampToValueAtTime(0.0001, now + release + 0.02);
-    tail.connect(tailGain);
-    tailGain.connect(this.masterGain);
-
-    thudOsc.start(now);
-    thudOsc.stop(now + release + 0.02);
-    noise.start(now);
-    noise.stop(now + release + 0.04);
-    click.start(now);
-    click.stop(now + 0.03);
-    tail.start(now);
-    tail.stop(now + release + 0.05);
-
-    let cleanedUp = false;
-    const cleanup = () => {
-      if (cleanedUp) return;
-      cleanedUp = true;
-      thudOsc.disconnect();
-      thudGain.disconnect();
-      noise.disconnect();
-      noiseFilter.disconnect();
-      noiseGain.disconnect();
-      click.disconnect();
-      clickGain.disconnect();
-      tail.disconnect();
-      tailGain.disconnect();
-    };
-    noise.onended = cleanup;
-    thudOsc.onended = cleanup;
-  }
-
-  /**
    * Mechanical typewriter click/clack.
    * Designed as a short, percussive transient rather than a pitched note.
    */
@@ -518,7 +422,7 @@ class AudioEngine {
     const config = TYPEWRITER_VARIANT_CONFIGS[this.typewriterVariant];
 
     if (isSpace) {
-      this.playTypewriterSpacebarThud(config, velocity, isError);
+      // Intentionally silent: in typewriter theme, spacebar sound is disabled.
       return;
     }
 
