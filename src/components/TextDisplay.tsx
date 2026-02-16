@@ -35,6 +35,23 @@ export function TextDisplay({
     }
   }, [typedChars]);
 
+  // Add quick impact animations for each key press
+  useEffect(() => {
+    const container = containerRef.current;
+    const lastTyped = typedChars[typedChars.length - 1];
+    if (!container || !lastTyped) return;
+
+    const animationClass = lastTyped.correct ? 'animate-practice-hit' : 'animate-practice-error';
+    container.classList.remove('animate-practice-hit', 'animate-practice-error');
+    // Restart animation class on each keypress.
+    void container.offsetWidth;
+    container.classList.add(animationClass);
+    const timer = setTimeout(() => {
+      container.classList.remove(animationClass);
+    }, lastTyped.correct ? 180 : 280);
+    return () => clearTimeout(timer);
+  }, [typedChars]);
+
   return (
     <div 
       ref={containerRef}
@@ -54,12 +71,16 @@ export function TextDisplay({
                 const isCurrent = index === currentIndex;
                 const typedInfo = typedChars[index];
                 const isRecentError = index === recentError;
+                const isLatestCorrect = index === typedChars.length - 1 && typedInfo?.correct;
 
                 let className = 'relative inline transition-all duration-150 ';
 
                 if (isTyped) {
                   if (typedInfo?.correct) {
                     className += 'text-emerald-400 ';
+                    if (isLatestCorrect) {
+                      className += 'animate-char-pop ';
+                    }
                   } else {
                     // Enhanced error styling
                     className += 'text-red-400 ';

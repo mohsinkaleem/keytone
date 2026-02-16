@@ -52,6 +52,43 @@ body {
   animation: char-pop 0.15s ease-out;
 }
 
+/* Subtle impact pulse for correct key presses */
+@keyframes practice-hit {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(52, 211, 153, 0);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 0 0 24px rgba(52, 211, 153, 0.12);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+.animate-practice-hit {
+  animation: practice-hit 0.18s ease-out;
+}
+
+/* Red flash for typing mistakes */
+@keyframes practice-error {
+  0% {
+    box-shadow: 0 0 0 rgba(248, 113, 113, 0);
+  }
+  40% {
+    box-shadow: 0 0 28px rgba(248, 113, 113, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(248, 113, 113, 0);
+  }
+}
+
+.animate-practice-error {
+  animation: practice-error 0.28s ease-out;
+}
+
 /* Shake animation for errors */
 @keyframes shake {
   0%, 100% {
@@ -83,6 +120,36 @@ body {
   animation: glow-pulse 1s ease-in-out infinite;
 }
 
+/* Ripple for pressed virtual keyboard keys */
+@keyframes key-ripple {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+.animate-key-ripple {
+  animation: key-ripple 0.22s ease-out;
+}
+
+/* Focused practice mode pill glow */
+@keyframes drill-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(129, 140, 248, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(129, 140, 248, 0.35);
+  }
+}
+
+.animate-drill-glow {
+  animation: drill-glow 2.2s ease-in-out infinite;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -102,4 +169,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
-

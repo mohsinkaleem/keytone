@@ -24,6 +24,11 @@ import {
   type Category,
 } from '../utils/typingTexts';
 import {
+  PRACTICE_MODES,
+  getPracticeDrill,
+  type PracticeMode as DrillPracticeMode,
+} from '../utils/practiceDrills';
+import {
   getUserData,
   updateStats,
   addCustomText,
@@ -36,12 +41,26 @@ import { checkAchievements, type AchievementDefinition } from '../utils/achievem
 import { BUILT_IN_UNIVERSE_IDS } from '../types/universe';
 
 type Difficulty = 'all' | 'easy' | 'medium' | 'hard';
+type PracticeMode = 'normal' | DrillPracticeMode;
 
 const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'easy', label: 'Easy' },
   { value: 'medium', label: 'Medium' },
   { value: 'hard', label: 'Hard' },
+];
+
+const PRACTICE_MODE_BUTTONS: Array<{
+  value: PracticeMode;
+  label: string;
+  helper: string;
+}> = [
+  { value: 'normal', label: 'Normal', helper: 'full text library' },
+  ...PRACTICE_MODES.map((mode) => ({
+    value: mode.value,
+    label: mode.label,
+    helper: mode.description,
+  })),
 ];
 
 function pickRandom<T>(items: T[]): T {
@@ -65,6 +84,7 @@ export function TypingPractice() {
   // UI state
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('normal');
   const [selectedText, setSelectedText] = useState<TypingText>(() => getRandomText('all'));
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -72,6 +92,9 @@ export function TypingPractice() {
   const [showVisualizer, setShowVisualizer] = useState(userData.settings.showVisualizer);
   const [showKeyboard, setShowKeyboard] = useState(userData.settings.showKeyboard ?? true);
   const [enableBackspace, setEnableBackspace] = useState(userData.settings.enableBackspace);
+  const [keyboardClickSound, setKeyboardClickSound] = useState(
+    userData.settings.keyboardClickSound ?? true
+  );
   const [timedMode, setTimedMode] = useState<number | null>(null);
   const [chordProgression, setChordProgression] = useState<'pop' | 'classic' | 'jazz' | 'blues' | 'ambient'>(
     (userData.settings.chordProgression as 'pop' | 'classic' | 'jazz' | 'blues' | 'ambient') || 'pop'
@@ -91,6 +114,23 @@ export function TypingPractice() {
       category: 'quotes' as Category,
     }));
   }, [userData.customTexts]);
+
+  const getGeneralTextsForSelection = useCallback((
+    category: Category | 'all',
+    difficulty: Difficulty,
+  ): TypingText[] => {
+    let texts = getTextsByCategory(category);
+
+    if (difficulty !== 'all') {
+      texts = texts.filter((t) => t.difficulty === difficulty);
+    }
+
+    if (category === 'all' || category === 'quotes') {
+      texts = [...texts, ...customTextsAsTypingTexts()];
+    }
+
+    return texts.length > 0 ? texts : [getRandomText()];
+  }, [customTextsAsTypingTexts]);
 
   // Handle completion callback
   const handleComplete = (stats: {
@@ -131,6 +171,7 @@ export function TypingPractice() {
     text: selectedText.text,
     autoStart: true,
     enableBackspace,
+    keyboardClickSound,
     chordProgression,
     onComplete: handleComplete,
   });
@@ -164,22 +205,32 @@ export function TypingPractice() {
       return;
     }
 
+    if (practiceMode !== 'normal') {
+      setSelectedText(getPracticeDrill(practiceMode, selectedDifficulty));
+      reset();
+      return;
+    }
+
     // For General universe, use existing category/difficulty logic
-    let texts = getTextsByCategory(selectedCategory);
-    if (selectedDifficulty !== 'all') {
-      texts = texts.filter((t) => t.difficulty === selectedDifficulty);
-    }
-    if (selectedCategory === 'all' || selectedCategory === 'quotes') {
-      texts = [...texts, ...customTextsAsTypingTexts()];
-    }
-    if (texts.length === 0) texts = [getRandomText()];
+    const texts = getGeneralTextsForSelection(selectedCategory, selectedDifficulty);
     const availableTexts = texts.filter((t) => t.id !== selectedText.id);
     const newText = availableTexts.length > 0
       ? pickRandom(availableTexts)
       : texts[0];
     setSelectedText(newText);
     reset();
-  }, [selectedCategory, selectedDifficulty, selectedText.id, customTextsAsTypingTexts, reset, isGeneralUniverse, activeUniverse.type, getNextExcerpt, getRandomExcerpt]);
+  }, [
+    selectedCategory,
+    selectedDifficulty,
+    selectedText.id,
+    reset,
+    isGeneralUniverse,
+    activeUniverse.type,
+    getNextExcerpt,
+    getRandomExcerpt,
+    practiceMode,
+    getGeneralTextsForSelection,
+  ]);
 
   // Track previous universe for change detection
   const [prevUniverseId, setPrevUniverseId] = useState(activeUniverse.id);
@@ -192,8 +243,12 @@ export function TypingPractice() {
       setPrevUniverseId(activeUniverse.id);
       
       if (isGeneralUniverse) {
-        // Switched to General - get a random text
-        setSelectedText(getRandomText('all'));
+        // Switched to General - respect current practice mode
+        if (practiceMode === 'normal') {
+          setSelectedText(getRandomText('all'));
+        } else {
+          setSelectedText(getPracticeDrill(practiceMode, selectedDifficulty));
+        }
         reset();
       } else if (currentExcerpts.length > 0) {
         // Switched to another universe with excerpts
@@ -228,34 +283,47 @@ export function TypingPractice() {
   // Handle category change
   const handleCategoryChange = useCallback((category: Category | 'all') => {
     setSelectedCategory(category);
-    let texts = getTextsByCategory(category);
-    if (selectedDifficulty !== 'all') {
-      texts = texts.filter((t) => t.difficulty === selectedDifficulty);
-    }
-    if (texts.length > 0) {
-      setSelectedText(pickRandom(texts));
-      reset();
-    }
-  }, [selectedDifficulty, reset]);
+    setPracticeMode('normal');
+    const texts = getGeneralTextsForSelection(category, selectedDifficulty);
+    setSelectedText(pickRandom(texts));
+    reset();
+  }, [selectedDifficulty, reset, getGeneralTextsForSelection]);
 
   // Handle difficulty change
   const handleDifficultyChange = useCallback((difficulty: Difficulty) => {
     setSelectedDifficulty(difficulty);
-    let texts = getTextsByCategory(selectedCategory);
-    if (difficulty !== 'all') {
-      texts = texts.filter((t) => t.difficulty === difficulty);
+
+    if (practiceMode !== 'normal') {
+      setSelectedText(getPracticeDrill(practiceMode, difficulty));
+      reset();
+      return;
     }
-    if (texts.length > 0) {
+
+    const texts = getGeneralTextsForSelection(selectedCategory, difficulty);
+    setSelectedText(pickRandom(texts));
+    reset();
+  }, [selectedCategory, reset, practiceMode, getGeneralTextsForSelection]);
+
+  const handlePracticeModeChange = useCallback((nextMode: PracticeMode) => {
+    setPracticeMode(nextMode);
+
+    if (nextMode === 'normal') {
+      const texts = getGeneralTextsForSelection(selectedCategory, selectedDifficulty);
       setSelectedText(pickRandom(texts));
       reset();
+      return;
     }
-  }, [selectedCategory, reset]);
+
+    setSelectedText(getPracticeDrill(nextMode, selectedDifficulty));
+    reset();
+  }, [selectedCategory, selectedDifficulty, reset, getGeneralTextsForSelection]);
 
   // Handle adding custom text
   const handleAddCustomText = (text: Omit<CustomText, 'id' | 'createdAt'>) => {
     const newText = addCustomText(text);
     setUserData(getUserData());
     setShowCustomTextModal(false);
+    setPracticeMode('normal');
     setSelectedText({
       id: newText.id,
       title: newText.title,
@@ -317,6 +385,9 @@ export function TypingPractice() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [stats.isComplete, isStarted, handleNextText, reset, isMuted, toggleMute]);
+
+  const selectedPracticeMode = PRACTICE_MODE_BUTTONS.find((mode) => mode.value === practiceMode);
+  const isPracticeDrill = selectedText.category === 'practice';
 
   // Completion screen
   if (stats.isComplete) {
@@ -387,6 +458,8 @@ export function TypingPractice() {
           onShowVisualizerChange={setShowVisualizer}
           showKeyboard={showKeyboard}
           onShowKeyboardChange={setShowKeyboard}
+          keyboardClickSound={keyboardClickSound}
+          onKeyboardClickSoundChange={setKeyboardClickSound}
           timedMode={timedMode}
           chordProgression={chordProgression}
           onChordProgressionChange={setChordProgression}
@@ -419,6 +492,7 @@ export function TypingPractice() {
                 <button
                   onClick={() => {
                     setSelectedCategory('quotes');
+                    setPracticeMode('normal');
                     const customTexts = customTextsAsTypingTexts();
                     if (customTexts.length > 0) {
                       setSelectedText(customTexts[0]);
@@ -460,6 +534,33 @@ export function TypingPractice() {
                 </button>
               ))}
             </div>
+
+            <div className="h-4 w-px bg-gray-700 mx-1" />
+
+            {/* Precision Practice */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                Precision Practice
+              </span>
+              <div className="flex bg-indigo-900/20 border border-indigo-500/30 p-1 rounded-xl animate-drill-glow">
+                {PRACTICE_MODE_BUTTONS.map((mode) => (
+                  <button
+                    key={mode.value}
+                    onClick={() => handlePracticeModeChange(mode.value)}
+                    title={mode.helper}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      practiceMode === mode.value
+                        ? mode.value === 'normal'
+                          ? 'bg-gray-600 text-white shadow-sm'
+                          : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/35'
+                        : 'text-indigo-200/70 hover:text-white hover:bg-indigo-600/30'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -500,8 +601,13 @@ export function TypingPractice() {
             <div>
               <h2 className="text-base font-semibold text-white">{selectedText.title}</h2>
               <p className="text-xs text-gray-400">
-                {selectedText.category} • {selectedText.difficulty} • {selectedText.text.length} chars
+                {isPracticeDrill
+                  ? `practice • ${selectedPracticeMode?.label ?? 'Precision'} • ${selectedText.difficulty}`
+                  : `${selectedText.category} • ${selectedText.difficulty}`}
+                {' • '}
+                {selectedText.text.length} chars
                 {enableBackspace && ' • Backspace enabled'}
+                {keyboardClickSound && ' • Key clicks on'}
               </p>
             </div>
             <button
@@ -527,6 +633,11 @@ export function TypingPractice() {
           {!isStarted && (
             <p className="text-center text-gray-400 animate-pulse">
               Start typing to begin...
+              {practiceMode !== 'normal' && (
+                <span className="block text-indigo-300 mt-1">
+                  Focus mode: {selectedPracticeMode?.label}
+                </span>
+              )}
               {timedMode && <span className="block text-indigo-400 mt-1">Timed Mode: {timedMode}s</span>}
             </p>
           )}

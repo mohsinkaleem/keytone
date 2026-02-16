@@ -12,6 +12,8 @@ interface SettingsPanelProps {
   onShowVisualizerChange: (show: boolean) => void;
   showKeyboard: boolean;
   onShowKeyboardChange: (show: boolean) => void;
+  keyboardClickSound: boolean;
+  onKeyboardClickSoundChange: (enabled: boolean) => void;
   timedMode: number | null;
   onTimedModeChange: (mode: number | null) => void;
   chordProgression: ProgressionName;
@@ -42,6 +44,8 @@ export function SettingsPanel({
   onShowVisualizerChange,
   showKeyboard,
   onShowKeyboardChange,
+  keyboardClickSound,
+  onKeyboardClickSoundChange,
   timedMode,
   onTimedModeChange,
   chordProgression,
@@ -291,6 +295,24 @@ export function SettingsPanel({
               <div className="absolute left-1 top-1 w-2 h-2 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
             </div>
             <span className="text-xs font-medium text-gray-400 group-hover:text-gray-300 transition-colors uppercase tracking-tight">Keyboard</span>
+          </label>
+
+          {/* Key Click Sound Toggle */}
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={keyboardClickSound}
+                onChange={(e) => {
+                  onKeyboardClickSoundChange(e.target.checked);
+                  onSettingsChange('keyboardClickSound', e.target.checked);
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4 bg-gray-700 rounded-full peer peer-checked:bg-indigo-600 transition-colors" />
+              <div className="absolute left-1 top-1 w-2 h-2 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+            </div>
+            <span className="text-xs font-medium text-gray-400 group-hover:text-gray-300 transition-colors uppercase tracking-tight">Key Click</span>
           </label>
         </div>
       </div>

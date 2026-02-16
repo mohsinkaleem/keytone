@@ -2,7 +2,7 @@
  * Sample texts for typing practice - 40+ diverse texts
  */
 
-export type Category = 'quotes' | 'prose' | 'code' | 'pangrams' | 'poetry' | 'facts';
+export type Category = 'quotes' | 'prose' | 'code' | 'pangrams' | 'poetry' | 'facts' | 'practice';
 
 export interface TypingText {
   id: string;

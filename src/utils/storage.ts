@@ -57,6 +57,7 @@ export interface UserSettings {
   soundTheme: string;
   typewriterVariant: string;
   volume: number;
+  keyboardClickSound: boolean;
   waveform: string;
   showVisualizer: boolean;
   showKeyboard: boolean;
@@ -99,6 +100,7 @@ const DEFAULT_USER_DATA: UserData = {
     soundTheme: 'piano',
     typewriterVariant: 'classic',
     volume: 0.5,
+    keyboardClickSound: true,
     waveform: 'sine',
     showVisualizer: true,
     showKeyboard: true,

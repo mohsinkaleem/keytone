@@ -26,6 +26,7 @@ interface UseTypingPracticeOptions {
   text: string;
   autoStart?: boolean;
   enableBackspace?: boolean;
+  keyboardClickSound?: boolean;
   chordProgression?: ProgressionName;
   onComplete?: (stats: TypingStats) => void;
 }
@@ -86,6 +87,7 @@ export function useTypingPractice({
   text,
   autoStart = false,
   enableBackspace = true,
+  keyboardClickSound = true,
   chordProgression = 'pop',
   onComplete,
 }: UseTypingPracticeOptions): UseTypingPracticeReturn {
@@ -124,15 +126,30 @@ export function useTypingPractice({
     return 1;
   };
 
+  const playKeyboardClickSound = (options: {
+    velocity?: number;
+    isError?: boolean;
+  } = {}) => {
+    if (!keyboardClickSound) return;
+    if (audioEngine.getSoundTheme() === 'typewriter') return;
+    audioEngine.playTypewriterKeySound({
+      velocity: options.velocity ?? 0.75,
+      isError: options.isError,
+    });
+  };
+
   // Play sound for correct key with character-aware note selection
   const playCorrectSound = (char: string) => {
     const { note, velocity, isSpace } = melodicGeneratorRef.current.getNextNote(char);
     const isTypewriterTheme = audioEngine.getSoundTheme() === 'typewriter';
 
     if (isTypewriterTheme) {
+      if (!keyboardClickSound) return;
       audioEngine.playTypewriterKeySound({ isSpace, velocity });
       return;
     }
+
+    playKeyboardClickSound({ velocity: Math.max(0.55, velocity * 0.9) });
 
     if (isSpace) {
       audioEngine.playSpacebarSound(velocity);
@@ -146,9 +163,12 @@ export function useTypingPractice({
   // Play sound for incorrect key
   const playErrorSound = () => {
     if (audioEngine.getSoundTheme() === 'typewriter') {
+      if (!keyboardClickSound) return;
       audioEngine.playTypewriterKeySound({ isError: true, velocity: 0.75 });
       return;
     }
+
+    playKeyboardClickSound({ isError: true, velocity: 0.72 });
 
     ERROR_FREQUENCIES.forEach((freq) => {
       audioEngine.playNote(freq);
