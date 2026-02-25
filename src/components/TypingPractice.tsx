@@ -651,6 +651,7 @@ export function TypingPractice() {
               lastTypedChar={typedChars[typedChars.length - 1]?.char}
               isCorrect={typedChars[typedChars.length - 1]?.correct ?? true}
               isActive={isStarted || !stats.isComplete}
+              showFingerGuides={isPracticeDrill}
             />
           </div>
         )}

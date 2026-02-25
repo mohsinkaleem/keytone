@@ -136,6 +136,20 @@ body {
   animation: key-ripple 0.22s ease-out;
 }
 
+/* Small pulse for finger suggestion dots */
+@keyframes finger-hint {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+.animate-finger-hint {
+  animation: finger-hint 0.8s ease-in-out infinite;
+}
+
 /* Focused practice mode pill glow */
 @keyframes drill-glow {
   0%, 100% {
