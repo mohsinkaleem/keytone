@@ -386,7 +386,6 @@ export function TypingPractice() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [stats.isComplete, isStarted, handleNextText, reset, isMuted, toggleMute]);
 
-  const selectedPracticeMode = PRACTICE_MODE_BUTTONS.find((mode) => mode.value === practiceMode);
   const isPracticeDrill = selectedText.category === 'practice';
 
   // Completion screen
@@ -469,19 +468,19 @@ export function TypingPractice() {
         />
       )}
 
-      {/* Category and Difficulty tabs (only for General universe) */}
+      {/* Category / Difficulty / Practice mode (only for General universe) */}
       {isGeneralUniverse && (
         <div className="px-6 py-1.5 border-b border-gray-800 bg-gray-900/30 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-4 min-w-max">
+          <div className="flex items-center gap-3 min-w-max">
             {/* Categories */}
-            <div className="flex bg-gray-800/40 p-1 rounded-xl">
+            <div className="flex bg-gray-800/40 p-0.5 rounded-lg">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
                   onClick={() => handleCategoryChange(cat.value)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     selectedCategory === cat.value
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white'
                       : 'text-gray-500 hover:text-gray-300'
                   }`}
                 >
@@ -499,34 +498,28 @@ export function TypingPractice() {
                       reset();
                     }
                   }}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     selectedCategory === 'quotes' && userData.customTexts.some(ct => ct.id === selectedText.id)
-                      ? 'bg-purple-600 text-white shadow-sm'
+                      ? 'bg-purple-600 text-white'
                       : 'text-purple-400 hover:text-purple-300'
                   }`}
                 >
-                  Custom ({userData.customTexts.length})
+                  Custom
                 </button>
               )}
             </div>
 
-            <div className="h-4 w-px bg-gray-700 mx-1" />
+            <div className="h-4 w-px bg-gray-700" />
 
             {/* Difficulty */}
-            <div className="flex bg-gray-800/40 p-1 rounded-xl">
+            <div className="flex bg-gray-800/40 p-0.5 rounded-lg">
               {DIFFICULTIES.map((diff) => (
                 <button
                   key={diff.value}
                   onClick={() => handleDifficultyChange(diff.value)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     selectedDifficulty === diff.value
-                      ? diff.value === 'easy'
-                        ? 'bg-green-600 text-white shadow-sm'
-                        : diff.value === 'medium'
-                        ? 'bg-yellow-600 text-white shadow-sm'
-                        : diff.value === 'hard'
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'bg-gray-600 text-white shadow-sm'
+                      ? 'bg-gray-600 text-white'
                       : 'text-gray-500 hover:text-gray-300'
                   }`}
                 >
@@ -535,31 +528,24 @@ export function TypingPractice() {
               ))}
             </div>
 
-            <div className="h-4 w-px bg-gray-700 mx-1" />
+            <div className="h-4 w-px bg-gray-700" />
 
-            {/* Precision Practice */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                Precision Practice
-              </span>
-              <div className="flex bg-indigo-900/20 border border-indigo-500/30 p-1 rounded-xl animate-drill-glow">
-                {PRACTICE_MODE_BUTTONS.map((mode) => (
-                  <button
-                    key={mode.value}
-                    onClick={() => handlePracticeModeChange(mode.value)}
-                    title={mode.helper}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      practiceMode === mode.value
-                        ? mode.value === 'normal'
-                          ? 'bg-gray-600 text-white shadow-sm'
-                          : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/35'
-                        : 'text-indigo-200/70 hover:text-white hover:bg-indigo-600/30'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
+            {/* Practice modes */}
+            <div className="flex bg-gray-800/40 p-0.5 rounded-lg">
+              {PRACTICE_MODE_BUTTONS.map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() => handlePracticeModeChange(mode.value)}
+                  title={mode.helper}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    practiceMode === mode.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -594,20 +580,14 @@ export function TypingPractice() {
       )}
 
       {/* Main typing area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-5xl space-y-10">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-5xl space-y-6">
           {/* Text info */}
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-white">{selectedText.title}</h2>
-              <p className="text-xs text-gray-400">
-                {isPracticeDrill
-                  ? `practice • ${selectedPracticeMode?.label ?? 'Precision'} • ${selectedText.difficulty}`
-                  : `${selectedText.category} • ${selectedText.difficulty}`}
-                {' • '}
-                {selectedText.text.length} chars
-                {enableBackspace && ' • Backspace enabled'}
-                {keyboardClickSound && ' • Key clicks on'}
+              <p className="text-xs text-gray-500">
+                {selectedText.category} &middot; {selectedText.difficulty} &middot; {selectedText.text.length} chars
               </p>
             </div>
             <button
@@ -615,7 +595,7 @@ export function TypingPractice() {
               className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
               title="Press Tab for new text"
             >
-              Skip →
+              Skip &rarr;
             </button>
           </div>
 
@@ -631,14 +611,8 @@ export function TypingPractice() {
 
           {/* Start hint */}
           {!isStarted && (
-            <p className="text-center text-gray-400 animate-pulse">
+            <p className="text-center text-gray-500 text-sm">
               Start typing to begin...
-              {practiceMode !== 'normal' && (
-                <span className="block text-indigo-300 mt-1">
-                  Focus mode: {selectedPracticeMode?.label}
-                </span>
-              )}
-              {timedMode && <span className="block text-indigo-400 mt-1">Timed Mode: {timedMode}s</span>}
             </p>
           )}
         </div>
@@ -657,19 +631,10 @@ export function TypingPractice() {
         )}
       </div>
 
-      {/* Footer hints */}
-      <footer className="px-6 py-2 border-t border-gray-800 flex items-center justify-center gap-4 text-xs text-gray-500">
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Tab</kbd> new text
-        </span>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Esc</kbd> restart
-        </span>
-        {enableBackspace && (
-          <span>
-            <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">⌫</kbd> backspace
-          </span>
-        )}
+      {/* Footer */}
+      <footer className="px-6 py-2 border-t border-gray-800 flex items-center justify-center gap-4 text-[11px] text-gray-600">
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Tab</kbd> next</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Esc</kbd> restart</span>
       </footer>
 
       {/* Stats Panel Modal */}

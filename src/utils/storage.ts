@@ -1,9 +1,19 @@
 /**
  * Storage utilities for persisting user data
+ *
+ * All user state (settings, custom texts, universes, excerpts, stats,
+ * achievements) is persisted to localStorage under a single key. Helper
+ * functions expose a read → modify → write pattern so callers never need
+ * to touch localStorage directly.
+ *
+ * Storage is v2-compatible: the deep-merge on read guarantees new fields
+ * added in future versions are automatically backfilled with defaults.
  */
 
 import type { Universe, Excerpt, UniverseProgress } from '../types/universe';
 import { BUILT_IN_UNIVERSE_IDS } from '../types/universe';
+
+// ---------------------  Type Definitions  ---------------------
 
 export interface SessionStats {
   id: string;
@@ -32,7 +42,7 @@ export interface UserStats {
   highestStreak: number;
   highestScore: number;
   sessionsHistory: SessionStats[];
-  characterErrors: Record<string, number>; // Track errors per character
+  characterErrors: Record<string, number>;
 }
 
 export interface Achievement {
@@ -67,20 +77,23 @@ export interface UserSettings {
 }
 
 export interface UserData {
+  version: number;            // schema version for future migrations
   stats: UserStats;
   achievements: Achievement[];
   customTexts: CustomText[];
   settings: UserSettings;
-  // Universe expansion
   activeUniverseId: string;
   universeProgress: Record<string, UniverseProgress>;
   customUniverses: Universe[];
   customExcerpts: Excerpt[];
 }
 
+// ---------------------  Defaults  ---------------------
+
 const STORAGE_KEY = 'keytone_user_data';
 
 const DEFAULT_USER_DATA: UserData = {
+  version: 2,
   stats: {
     totalSessions: 0,
     totalCharsTyped: 0,
@@ -108,12 +121,13 @@ const DEFAULT_USER_DATA: UserData = {
     scale: 'C Major Pentatonic',
     chordProgression: 'pop',
   },
-  // Universe expansion defaults
   activeUniverseId: BUILT_IN_UNIVERSE_IDS.GENERAL,
   universeProgress: {},
   customUniverses: [],
   customExcerpts: [],
 };
+
+// ---------------------  Helpers  ---------------------
 
 // Deep-merge helper: merges source into target, preserving nested defaults
 function deepMerge<T>(target: T, source: Partial<T>): T {
@@ -139,12 +153,19 @@ function deepMerge<T>(target: T, source: Partial<T>): T {
   return result;
 }
 
-// Get user data from localStorage
+/** Generate a unique id with an optional prefix */
+function uid(prefix = 'id'): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// ---------------------  Core CRUD  ---------------------
+
+/** Read the full user data from localStorage, backfilling any missing defaults */
 export function getUserData(): UserData {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data) as Partial<UserData>;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<UserData>;
       return deepMerge(DEFAULT_USER_DATA, parsed);
     }
   } catch (e) {
@@ -153,7 +174,7 @@ export function getUserData(): UserData {
   return { ...DEFAULT_USER_DATA };
 }
 
-// Save user data to localStorage
+/** Persist full user data to localStorage */
 export function saveUserData(data: UserData): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -162,218 +183,203 @@ export function saveUserData(data: UserData): void {
   }
 }
 
-// Update user stats after a session
+/** Convenience: read → mutate → save, returns the updated data */
+function mutateAndSave(fn: (data: UserData) => void): UserData {
+  const data = getUserData();
+  fn(data);
+  saveUserData(data);
+  return data;
+}
+
+// ---------------------  Session Stats  ---------------------
+
+/** Record a completed typing session and recalculate aggregate stats */
 export function updateStats(
   session: Omit<SessionStats, 'id' | 'date'>,
   characterErrors?: Record<string, number>
 ): UserData {
-  const data = getUserData();
-  const stats = data.stats;
+  return mutateAndSave((data) => {
+    const stats = data.stats;
+    const newSession: SessionStats = {
+      ...session,
+      id: uid('session'),
+      date: new Date().toISOString(),
+    };
 
-  const newSession: SessionStats = {
-    ...session,
-    id: `session-${Date.now()}`,
-    date: new Date().toISOString(),
-  };
+    stats.totalSessions += 1;
+    stats.totalCharsTyped += session.correctChars + session.incorrectChars;
+    stats.totalCorrectChars += session.correctChars;
+    stats.totalTimeSpent += session.duration;
 
-  // Update totals
-  stats.totalSessions += 1;
-  stats.totalCharsTyped += session.correctChars + session.incorrectChars;
-  stats.totalCorrectChars += session.correctChars;
-  stats.totalTimeSpent += session.duration;
+    const totalWpm = stats.averageWpm * (stats.totalSessions - 1) + session.wpm;
+    stats.averageWpm = Math.round(totalWpm / stats.totalSessions);
+    const totalAccuracy = stats.averageAccuracy * (stats.totalSessions - 1) + session.accuracy;
+    stats.averageAccuracy = Math.round(totalAccuracy / stats.totalSessions);
 
-  // Update averages
-  const totalWpm = stats.averageWpm * (stats.totalSessions - 1) + session.wpm;
-  stats.averageWpm = Math.round(totalWpm / stats.totalSessions);
+    stats.highestWpm = Math.max(stats.highestWpm, session.wpm);
+    stats.highestStreak = Math.max(stats.highestStreak, session.maxStreak);
+    stats.highestScore = Math.max(stats.highestScore, session.score);
 
-  const totalAccuracy = stats.averageAccuracy * (stats.totalSessions - 1) + session.accuracy;
-  stats.averageAccuracy = Math.round(totalAccuracy / stats.totalSessions);
-
-  // Update highs
-  stats.highestWpm = Math.max(stats.highestWpm, session.wpm);
-  stats.highestStreak = Math.max(stats.highestStreak, session.maxStreak);
-  stats.highestScore = Math.max(stats.highestScore, session.score);
-
-  // Update character errors
-  if (characterErrors) {
-    if (!stats.characterErrors) stats.characterErrors = {};
-    for (const [char, count] of Object.entries(characterErrors)) {
-      stats.characterErrors[char] = (stats.characterErrors[char] || 0) + count;
+    if (characterErrors) {
+      if (!stats.characterErrors) stats.characterErrors = {};
+      for (const [char, count] of Object.entries(characterErrors)) {
+        stats.characterErrors[char] = (stats.characterErrors[char] || 0) + count;
+      }
     }
-  }
 
-  // Add to history (keep last 100 sessions)
-  stats.sessionsHistory = [newSession, ...stats.sessionsHistory].slice(0, 100);
-
-  data.stats = stats;
-  saveUserData(data);
-
-  return data;
+    // Keep last 100 sessions
+    stats.sessionsHistory = [newSession, ...stats.sessionsHistory].slice(0, 100);
+  });
 }
 
-// Add custom text
+// ---------------------  Custom Texts  ---------------------
+
 export function addCustomText(text: Omit<CustomText, 'id' | 'createdAt'>): CustomText {
-  const data = getUserData();
   const newText: CustomText = {
     ...text,
-    id: `custom-${Date.now()}`,
+    id: uid('custom'),
     createdAt: new Date().toISOString(),
   };
-  data.customTexts = [newText, ...data.customTexts];
-  saveUserData(data);
+  mutateAndSave((data) => {
+    data.customTexts = [newText, ...data.customTexts];
+  });
   return newText;
 }
 
-// Remove custom text
 export function removeCustomText(id: string): void {
-  const data = getUserData();
-  data.customTexts = data.customTexts.filter((t) => t.id !== id);
-  saveUserData(data);
+  mutateAndSave((data) => {
+    data.customTexts = data.customTexts.filter((t) => t.id !== id);
+  });
 }
 
-// Update settings (type-safe: only accepts valid setting keys and values)
+// ---------------------  Settings  ---------------------
+
 export function updateSettings<K extends keyof UserSettings>(
   settings: Pick<UserSettings, K>,
 ): void {
-  const data = getUserData();
-  data.settings = { ...data.settings, ...settings };
-  saveUserData(data);
+  mutateAndSave((data) => {
+    data.settings = { ...data.settings, ...settings };
+  });
 }
 
-// Get user settings
 export function getSettings(): UserSettings {
   return getUserData().settings;
 }
 
-// Unlock achievement
+// ---------------------  Achievements  ---------------------
+
 export function unlockAchievement(achievement: Omit<Achievement, 'unlockedAt'>): boolean {
   const data = getUserData();
   const existing = data.achievements.find((a) => a.id === achievement.id);
-  if (existing?.unlockedAt) return false; // Already unlocked
+  if (existing?.unlockedAt) return false;
 
   if (existing) {
     existing.unlockedAt = new Date().toISOString();
   } else {
-    data.achievements.push({
-      ...achievement,
-      unlockedAt: new Date().toISOString(),
-    });
+    data.achievements.push({ ...achievement, unlockedAt: new Date().toISOString() });
   }
   saveUserData(data);
   return true;
 }
 
-// Get all achievements with their unlock status
 export function getAchievements(): Achievement[] {
   return getUserData().achievements;
 }
 
-// Clear all data
+// ---------------------  Data Management  ---------------------
+
 export function clearAllData(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-// ============ Universe Management ============
+/** Export all data as a JSON string (for backup / sharing) */
+export function exportData(): string {
+  return JSON.stringify(getUserData(), null, 2);
+}
 
-// Get active universe ID
+/** Import data from a JSON string, merging with defaults */
+export function importData(json: string): UserData {
+  const parsed = JSON.parse(json) as Partial<UserData>;
+  const merged = deepMerge(DEFAULT_USER_DATA, parsed);
+  saveUserData(merged);
+  return merged;
+}
+
+// ---------------------  Universe Management  ---------------------
+
 export function getActiveUniverseId(): string {
   return getUserData().activeUniverseId;
 }
 
-// Set active universe
 export function setActiveUniverse(universeId: string): void {
-  const data = getUserData();
-  data.activeUniverseId = universeId;
-  saveUserData(data);
+  mutateAndSave((data) => { data.activeUniverseId = universeId; });
 }
 
-// Get universe progress
 export function getUniverseProgress(universeId: string): UniverseProgress | undefined {
   return getUserData().universeProgress[universeId];
 }
 
-// Update universe progress
 export function updateUniverseProgress(
   universeId: string,
   excerptId: string,
   completed: boolean
 ): void {
-  const data = getUserData();
-  const progress = data.universeProgress[universeId] || {
-    universeId,
-    completedExcerptIds: [],
-    totalExcerpts: 0,
-    lastAccessedAt: new Date().toISOString(),
-  };
-
-  progress.currentExcerptId = excerptId;
-  progress.lastAccessedAt = new Date().toISOString();
-
-  if (completed && !progress.completedExcerptIds.includes(excerptId)) {
-    progress.completedExcerptIds.push(excerptId);
-  }
-
-  data.universeProgress[universeId] = progress;
-  saveUserData(data);
+  mutateAndSave((data) => {
+    const progress = data.universeProgress[universeId] || {
+      universeId,
+      completedExcerptIds: [],
+      totalExcerpts: 0,
+      lastAccessedAt: new Date().toISOString(),
+    };
+    progress.currentExcerptId = excerptId;
+    progress.lastAccessedAt = new Date().toISOString();
+    if (completed && !progress.completedExcerptIds.includes(excerptId)) {
+      progress.completedExcerptIds.push(excerptId);
+    }
+    data.universeProgress[universeId] = progress;
+  });
 }
 
-// Add custom universe
 export function addCustomUniverse(universe: Omit<Universe, 'id' | 'createdAt' | 'isBuiltIn'>): Universe {
-  const data = getUserData();
   const newUniverse: Universe = {
     ...universe,
-    id: `universe-${Date.now()}`,
+    id: uid('universe'),
     isBuiltIn: false,
     createdAt: new Date().toISOString(),
   };
-  data.customUniverses.push(newUniverse);
-  saveUserData(data);
+  mutateAndSave((data) => { data.customUniverses.push(newUniverse); });
   return newUniverse;
 }
 
-// Get custom universes
 export function getCustomUniverses(): Universe[] {
   return getUserData().customUniverses;
 }
 
-// Delete custom universe
 export function deleteCustomUniverse(universeId: string): void {
-  const data = getUserData();
-  data.customUniverses = data.customUniverses.filter(u => u.id !== universeId);
-  // Also delete associated excerpts
-  data.customExcerpts = data.customExcerpts.filter(e => e.universeId !== universeId);
-  // Reset active universe if deleted
-  if (data.activeUniverseId === universeId) {
-    data.activeUniverseId = BUILT_IN_UNIVERSE_IDS.GENERAL;
-  }
-  saveUserData(data);
+  mutateAndSave((data) => {
+    data.customUniverses = data.customUniverses.filter(u => u.id !== universeId);
+    data.customExcerpts = data.customExcerpts.filter(e => e.universeId !== universeId);
+    if (data.activeUniverseId === universeId) {
+      data.activeUniverseId = BUILT_IN_UNIVERSE_IDS.GENERAL;
+    }
+  });
 }
 
-// Add custom excerpt
 export function addCustomExcerpt(excerpt: Omit<Excerpt, 'id'>): Excerpt {
-  const data = getUserData();
-  const newExcerpt: Excerpt = {
-    ...excerpt,
-    id: `excerpt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-  };
-  data.customExcerpts.push(newExcerpt);
-  saveUserData(data);
+  const newExcerpt: Excerpt = { ...excerpt, id: uid('excerpt') };
+  mutateAndSave((data) => { data.customExcerpts.push(newExcerpt); });
   return newExcerpt;
 }
 
-// Add multiple excerpts (for bulk import)
 export function addCustomExcerpts(excerpts: Omit<Excerpt, 'id'>[]): Excerpt[] {
-  const data = getUserData();
   const newExcerpts = excerpts.map((excerpt, index) => ({
     ...excerpt,
-    id: `excerpt-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+    id: uid(`excerpt-${index}`),
   }));
-  data.customExcerpts.push(...newExcerpts);
-  saveUserData(data);
+  mutateAndSave((data) => { data.customExcerpts.push(...newExcerpts); });
   return newExcerpts;
 }
 
-// Get excerpts for a universe
 export function getExcerptsForUniverse(universeId: string): Excerpt[] {
   return getUserData().customExcerpts.filter(e => e.universeId === universeId);
 }
