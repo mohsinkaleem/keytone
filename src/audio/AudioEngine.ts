@@ -140,16 +140,16 @@ const TYPEWRITER_VARIANT_CONFIGS: Record<TypewriterVariant, TypewriterVariantCon
     keyRelease: 0.045,
     spaceThudStart: 165,
     spaceThudEnd: 58,
-    spaceThudGain: 0.42,
+    spaceThudGain: 0.32,
     spaceThudRelease: 0.11,
     spaceNoiseFreq: 780,
     spaceNoiseQ: 1.1,
-    spaceNoiseGain: 0.13,
+    spaceNoiseGain: 0.08,
     spaceClickStart: 980,
-    spaceClickGain: 0.07,
+    spaceClickGain: 0.05,
     spaceTailStart: 88,
     spaceTailEnd: 47,
-    spaceTailGain: 0.11,
+    spaceTailGain: 0.08,
   },
   thock: {
     keyNoiseFreq: 1800,
@@ -164,16 +164,16 @@ const TYPEWRITER_VARIANT_CONFIGS: Record<TypewriterVariant, TypewriterVariantCon
     keyRelease: 0.058,
     spaceThudStart: 138,
     spaceThudEnd: 42,
-    spaceThudGain: 0.52,
+    spaceThudGain: 0.38,
     spaceThudRelease: 0.14,
     spaceNoiseFreq: 620,
     spaceNoiseQ: 0.9,
-    spaceNoiseGain: 0.1,
+    spaceNoiseGain: 0.06,
     spaceClickStart: 760,
-    spaceClickGain: 0.05,
+    spaceClickGain: 0.03,
     spaceTailStart: 74,
     spaceTailEnd: 38,
-    spaceTailGain: 0.15,
+    spaceTailGain: 0.1,
   },
   clicky: {
     keyNoiseFreq: 2900,
@@ -188,16 +188,16 @@ const TYPEWRITER_VARIANT_CONFIGS: Record<TypewriterVariant, TypewriterVariantCon
     keyRelease: 0.036,
     spaceThudStart: 175,
     spaceThudEnd: 64,
-    spaceThudGain: 0.36,
+    spaceThudGain: 0.25,
     spaceThudRelease: 0.1,
     spaceNoiseFreq: 980,
     spaceNoiseQ: 1.5,
-    spaceNoiseGain: 0.16,
+    spaceNoiseGain: 0.1,
     spaceClickStart: 1280,
-    spaceClickGain: 0.1,
+    spaceClickGain: 0.06,
     spaceTailStart: 95,
     spaceTailEnd: 54,
-    spaceTailGain: 0.08,
+    spaceTailGain: 0.06,
   },
 };
 
@@ -422,7 +422,50 @@ class AudioEngine {
     const config = TYPEWRITER_VARIANT_CONFIGS[this.typewriterVariant];
 
     if (isSpace) {
-      // Intentionally silent: in typewriter theme, spacebar sound is disabled.
+      const release = config.spaceThudRelease;
+      const attack = 0.015; // Softer attack for space
+
+      // Space Thud (Main body)
+      const thud = ctx.createOscillator();
+      thud.type = 'sine';
+      thud.frequency.setValueAtTime(config.spaceThudStart, now);
+      thud.frequency.exponentialRampToValueAtTime(config.spaceThudEnd, now + release);
+      const thudGain = ctx.createGain();
+      thudGain.gain.setValueAtTime(0, now);
+      thudGain.gain.linearRampToValueAtTime(velocity * config.spaceThudGain * 0.75, now + attack);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + release);
+      thud.connect(thudGain);
+      thudGain.connect(this.masterGain);
+
+      // Space Noise (Airy texture)
+      const noiseBuffer = this.createNoiseBuffer(release + 0.05);
+      if (noiseBuffer) {
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = config.spaceNoiseFreq;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(velocity * config.spaceNoiseGain * 0.6, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + release * 0.6);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        noise.start(now);
+        noise.stop(now + release);
+        noise.onended = () => {
+          noise.disconnect();
+          noiseFilter.disconnect();
+          noiseGain.disconnect();
+        };
+      }
+
+      thud.start(now);
+      thud.stop(now + release);
+      thud.onended = () => {
+        thud.disconnect();
+        thudGain.disconnect();
+      };
       return;
     }
 
@@ -506,24 +549,24 @@ class AudioEngine {
     }
 
     const now = this.audioContext.currentTime;
-    const baseFreq = 80; // Slightly higher for more presence
+    const baseFreq = 65; // Lowered for a milder, less boxy sound
 
     // === Layer 1: Main bass thump with pitch drop ===
     const bassOsc = this.audioContext.createOscillator();
     bassOsc.type = 'sine';
-    bassOsc.frequency.setValueAtTime(baseFreq * 1.5, now);
-    bassOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.4, now + 0.08);
+    bassOsc.frequency.setValueAtTime(baseFreq * 1.2, now);
+    bassOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + 0.1);
 
     const bassGain = this.audioContext.createGain();
     bassGain.gain.setValueAtTime(0, now);
-    bassGain.gain.linearRampToValueAtTime(velocity * 0.7, now + 0.005);
-    bassGain.gain.exponentialRampToValueAtTime(velocity * 0.3, now + 0.04);
-    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    bassGain.gain.linearRampToValueAtTime(velocity * 0.4, now + 0.012); // Softer attack
+    bassGain.gain.exponentialRampToValueAtTime(velocity * 0.15, now + 0.06);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
     // Bass filter for warmth
     const bassFilter = this.audioContext.createBiquadFilter();
     bassFilter.type = 'lowpass';
-    bassFilter.frequency.value = 300;
+    bassFilter.frequency.value = 250;
     bassFilter.Q.value = 1;
 
     bassOsc.connect(bassFilter);
@@ -533,13 +576,13 @@ class AudioEngine {
     // === Layer 2: Sub-bass for depth ===
     const subOsc = this.audioContext.createOscillator();
     subOsc.type = 'sine';
-    subOsc.frequency.setValueAtTime(45, now);
-    subOsc.frequency.exponentialRampToValueAtTime(35, now + 0.1);
+    subOsc.frequency.setValueAtTime(40, now);
+    subOsc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
 
     const subGain = this.audioContext.createGain();
     subGain.gain.setValueAtTime(0, now);
-    subGain.gain.linearRampToValueAtTime(velocity * 0.4, now + 0.01);
-    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    subGain.gain.linearRampToValueAtTime(velocity * 0.2, now + 0.02); // Much softer sub-bass
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
     subOsc.connect(subGain);
     subGain.connect(this.masterGain);
@@ -547,17 +590,17 @@ class AudioEngine {
     // === Layer 3: Click transient for tactile feel ===
     const clickOsc = this.audioContext.createOscillator();
     clickOsc.type = 'square';
-    clickOsc.frequency.setValueAtTime(1200, now);
-    clickOsc.frequency.exponentialRampToValueAtTime(200, now + 0.015);
+    clickOsc.frequency.setValueAtTime(1000, now);
+    clickOsc.frequency.exponentialRampToValueAtTime(150, now + 0.02);
 
     const clickGain = this.audioContext.createGain();
-    clickGain.gain.setValueAtTime(velocity * 0.15, now);
-    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    clickGain.gain.setValueAtTime(velocity * 0.05, now); // Lower click gain for softness
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
 
     const clickFilter = this.audioContext.createBiquadFilter();
     clickFilter.type = 'bandpass';
-    clickFilter.frequency.value = 800;
-    clickFilter.Q.value = 2;
+    clickFilter.frequency.value = 600;
+    clickFilter.Q.value = 1.5;
 
     clickOsc.connect(clickFilter);
     clickFilter.connect(clickGain);
@@ -566,26 +609,26 @@ class AudioEngine {
     // === Layer 4: Soft noise burst for texture ===
     const noiseBuffer = this.audioContext.createBuffer(
       1,
-      this.audioContext.sampleRate * 0.04,
+      this.audioContext.sampleRate * 0.06,
       this.audioContext.sampleRate
     );
     const noiseData = noiseBuffer.getChannelData(0);
     for (let i = 0; i < noiseData.length; i++) {
       // Shaped noise - starts strong, fades
       const envelope = 1 - (i / noiseData.length);
-      noiseData[i] = (Math.random() * 2 - 1) * 0.4 * envelope;
+      noiseData[i] = (Math.random() * 2 - 1) * 0.3 * envelope;
     }
     const noiseSource = this.audioContext.createBufferSource();
     noiseSource.buffer = noiseBuffer;
 
     const noiseFilter = this.audioContext.createBiquadFilter();
     noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 400;
-    noiseFilter.Q.value = 0.7;
+    noiseFilter.frequency.value = 600; // Raised for airiness
+    noiseFilter.Q.value = 0.5;
 
     const noiseGain = this.audioContext.createGain();
-    noiseGain.gain.setValueAtTime(velocity * 0.12, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    noiseGain.gain.setValueAtTime(velocity * 0.08, now); // Reduced gain
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
     noiseSource.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
@@ -593,13 +636,13 @@ class AudioEngine {
 
     // Start all oscillators
     bassOsc.start(now);
-    bassOsc.stop(now + 0.2);
+    bassOsc.stop(now + 0.3);
     subOsc.start(now);
-    subOsc.stop(now + 0.18);
+    subOsc.stop(now + 0.2);
     clickOsc.start(now);
-    clickOsc.stop(now + 0.03);
+    clickOsc.stop(now + 0.04);
     noiseSource.start(now);
-    noiseSource.stop(now + 0.05);
+    noiseSource.stop(now + 0.07);
   }
 
   /**

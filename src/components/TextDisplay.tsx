@@ -12,7 +12,6 @@ export function TextDisplay({
   typedChars,
 }: TextDisplayProps) {
   const currentCharRef = useRef<HTMLSpanElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [recentError, setRecentError] = useState<number | null>(null);
 
   // Auto-scroll to keep current character in view
@@ -24,7 +23,7 @@ export function TextDisplay({
     });
   }, [currentIndex]);
 
-  // Track recent errors for shake animation
+  // Track recent errors for per-character underline animation
   useEffect(() => {
     const lastTyped = typedChars[typedChars.length - 1];
     if (lastTyped && !lastTyped.correct) {
@@ -35,27 +34,9 @@ export function TextDisplay({
     }
   }, [typedChars]);
 
-  // Add quick impact animations for each key press
-  useEffect(() => {
-    const container = containerRef.current;
-    const lastTyped = typedChars[typedChars.length - 1];
-    if (!container || !lastTyped) return;
-
-    const animationClass = lastTyped.correct ? 'animate-practice-hit' : 'animate-practice-error';
-    container.classList.remove('animate-practice-hit', 'animate-practice-error');
-    // Restart animation class on each keypress.
-    void container.offsetWidth;
-    container.classList.add(animationClass);
-    const timer = setTimeout(() => {
-      container.classList.remove(animationClass);
-    }, lastTyped.correct ? 180 : 280);
-    return () => clearTimeout(timer);
-  }, [typedChars]);
-
   return (
     <div 
-      ref={containerRef}
-      className={`relative p-6 md:p-8 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-48 max-h-96 overflow-y-auto ${recentError !== null ? 'animate-shake' : ''}`}
+      className="relative p-6 md:p-8 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-48 max-h-96 overflow-y-auto"
     >
       {/* Text container - responsive sizing with word wrapping */}
       <div className="font-mono text-xl md:text-2xl leading-relaxed tracking-wide select-none">

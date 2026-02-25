@@ -149,11 +149,10 @@ export function useTypingPractice({
       return;
     }
 
-    playKeyboardClickSound({ velocity: Math.max(0.55, velocity * 0.9) });
-
     if (isSpace) {
       audioEngine.playSpacebarSound(velocity);
     } else {
+      playKeyboardClickSound({ velocity: Math.max(0.55, velocity * 0.9) });
       const frequency = midiToFrequency(note);
       audioEngine.playNoteWithVelocity(frequency, velocity);
       setTimeout(() => audioEngine.stopNote(frequency), 150);
