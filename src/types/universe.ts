@@ -4,6 +4,8 @@
 
 export type UniverseType = 'standard' | 'coding' | 'novel';
 
+export type ExcerptFlow = 'sequential' | 'random' | 'chapter';
+
 export interface Universe {
   id: string;
   name: string;

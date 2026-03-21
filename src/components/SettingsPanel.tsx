@@ -18,6 +18,8 @@ interface SettingsPanelProps {
   onTimedModeChange: (mode: number | null) => void;
   chordProgression: ProgressionName;
   onChordProgressionChange: (progression: ProgressionName) => void;
+  cursorStyle: 'line' | 'underline';
+  onCursorStyleChange: (style: 'line' | 'underline') => void;
   onSettingsChange: <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => void;
   onReset: () => void;
 }
@@ -50,6 +52,8 @@ export function SettingsPanel({
   onTimedModeChange,
   chordProgression,
   onChordProgressionChange,
+  cursorStyle,
+  onCursorStyleChange,
   onSettingsChange,
   onReset,
 }: SettingsPanelProps) {
@@ -235,6 +239,29 @@ export function SettingsPanel({
               >
                 <span className="text-base">{prog.icon}</span>
                 <span className="hidden xl:inline font-medium">{prog.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cursor Style */}
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Cursor</span>
+          <div className="flex bg-gray-800/50 rounded-lg p-1 w-fit">
+            {([{ value: 'line' as const, label: 'Line │' }, { value: 'underline' as const, label: 'Under ▁' }]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onCursorStyleChange(opt.value);
+                  onSettingsChange('cursorStyle', opt.value);
+                }}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  cursorStyle === opt.value
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                {opt.label}
               </button>
             ))}
           </div>

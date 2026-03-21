@@ -99,6 +99,12 @@ export function TypingPractice() {
   const [chordProgression, setChordProgression] = useState<'pop' | 'classic' | 'jazz' | 'blues' | 'ambient'>(
     (userData.settings.chordProgression as 'pop' | 'classic' | 'jazz' | 'blues' | 'ambient') || 'pop'
   );
+  const [cursorStyle, setCursorStyle] = useState<'line' | 'underline'>(
+    (userData.settings.cursorStyle as 'line' | 'underline') || 'line'
+  );
+  const [excerptFlowOverrides, setExcerptFlowOverrides] = useState<Record<string, string>>(
+    userData.settings.universeExcerptFlow || {}
+  );
 
   // Achievement popup state
   const [currentAchievement, setCurrentAchievement] = useState<AchievementDefinition | null>(null);
@@ -188,9 +194,33 @@ export function TypingPractice() {
   const handleNextText = useCallback(() => {
     // For non-General universes, use universe excerpts
     if (!isGeneralUniverse) {
-      const nextExcerpt = activeUniverse.type === 'novel'
-        ? getNextExcerpt(selectedText.id)
-        : getRandomExcerpt(selectedText.id);
+      const flowOverride = excerptFlowOverrides[activeUniverse.id];
+      const useSequential = flowOverride === 'sequential' || (!flowOverride && activeUniverse.type === 'novel');
+      const useRandom = flowOverride === 'random' || (!flowOverride && activeUniverse.type !== 'novel');
+      
+      let nextExcerpt;
+      if (useSequential) {
+        nextExcerpt = getNextExcerpt(selectedText.id);
+      } else if (flowOverride === 'chapter') {
+        // Chapter-wise: get next excerpt within same chapter metadata, then advance chapter
+        const currentChapter = currentExcerpts.find(e => e.id === selectedText.id)?.metadata?.chapter;
+        const sameChapter = currentExcerpts.filter(e => e.metadata?.chapter === currentChapter);
+        const currentIdx = sameChapter.findIndex(e => e.id === selectedText.id);
+        if (currentIdx >= 0 && currentIdx < sameChapter.length - 1) {
+          nextExcerpt = sameChapter[currentIdx + 1];
+        } else {
+          // Move to next chapter
+          const nextChapterExcerpt = currentExcerpts.find(e =>
+            e.metadata?.chapter !== currentChapter &&
+            (currentChapter == null || (e.metadata?.chapter ?? 0) > currentChapter)
+          );
+          nextExcerpt = nextChapterExcerpt || currentExcerpts[0];
+        }
+      } else if (useRandom) {
+        nextExcerpt = getRandomExcerpt(selectedText.id);
+      } else {
+        nextExcerpt = getRandomExcerpt(selectedText.id);
+      }
       
       if (nextExcerpt) {
         setSelectedText({
@@ -225,9 +255,12 @@ export function TypingPractice() {
     selectedText.id,
     reset,
     isGeneralUniverse,
+    activeUniverse.id,
     activeUniverse.type,
     getNextExcerpt,
     getRandomExcerpt,
+    currentExcerpts,
+    excerptFlowOverrides,
     practiceMode,
     getGeneralTextsForSelection,
   ]);
@@ -360,22 +393,67 @@ export function TypingPractice() {
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
-        // Still allow Escape to close shortcuts/reset if needed?
-        // Actually, better to let the modal handle its own Escape.
-        // But we MUST allow Tab for focus switching in modals.
         return;
       }
 
-      // Toggle mute with Alt+M
+      // Alt+M: Toggle mute
       if (e.altKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         toggleMute(!isMuted);
       }
 
+      // Alt+S: Toggle settings
+      if (e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        setShowSettings(prev => !prev);
+      }
+
+      // Alt+K: Toggle keyboard
+      if (e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowKeyboard(prev => {
+          handleSettingsChange('showKeyboard', !prev);
+          return !prev;
+        });
+      }
+
+      // Alt+V: Toggle visualizer
+      if (e.altKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        setShowVisualizer(prev => {
+          handleSettingsChange('showVisualizer', !prev);
+          return !prev;
+        });
+      }
+
+      // Alt+N: Next text (always works)
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleNextText();
+      }
+
+      // Alt+R: Restart current
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        reset();
+      }
+
+      // Alt+C: Toggle cursor style
+      if (e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        setCursorStyle(prev => {
+          const next = prev === 'line' ? 'underline' : 'line';
+          handleSettingsChange('cursorStyle', next);
+          return next;
+        });
+      }
+
+      // Tab: next text (when idle/complete)
       if (e.key === 'Tab' && (stats.isComplete || !isStarted)) {
         e.preventDefault();
         handleNextText();
       }
+      // Escape: restart
       if (e.key === 'Escape') {
         e.preventDefault();
         reset();
@@ -384,7 +462,7 @@ export function TypingPractice() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stats.isComplete, isStarted, handleNextText, reset, isMuted, toggleMute]);
+  }, [stats.isComplete, isStarted, handleNextText, reset, isMuted, toggleMute, handleSettingsChange]);
 
   const isPracticeDrill = selectedText.category === 'practice';
 
@@ -462,6 +540,8 @@ export function TypingPractice() {
           timedMode={timedMode}
           chordProgression={chordProgression}
           onChordProgressionChange={setChordProgression}
+          cursorStyle={cursorStyle}
+          onCursorStyleChange={setCursorStyle}
           onTimedModeChange={setTimedMode}
           onSettingsChange={handleSettingsChange}
           onReset={reset}
@@ -558,16 +638,39 @@ export function TypingPractice() {
             <span className="text-gray-400">
               {activeUniverse.icon} {activeUniverse.name}
             </span>
-            <span className="text-gray-600">•</span>
+            <span className="text-gray-600">&middot;</span>
             <span className="text-gray-500">
               {currentExcerpts.findIndex(e => e.id === selectedText.id) + 1} / {currentExcerpts.length} excerpts
             </span>
-            {activeUniverse.type === 'novel' && (
-              <>
-                <span className="text-gray-600">•</span>
-                <span className="text-indigo-400 text-xs">Sequential mode</span>
-              </>
-            )}
+            <span className="text-gray-600">&middot;</span>
+            {/* Excerpt flow selector */}
+            <div className="flex bg-gray-800/40 p-0.5 rounded-lg">
+              {([
+                { value: 'sequential', label: 'Sequential' },
+                { value: 'random', label: 'Random' },
+                { value: 'chapter', label: 'Chapter' },
+              ] as const).map((opt) => {
+                const currentFlow = excerptFlowOverrides[activeUniverse.id]
+                  || (activeUniverse.type === 'novel' ? 'sequential' : 'random');
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      const newOverrides = { ...excerptFlowOverrides, [activeUniverse.id]: opt.value };
+                      setExcerptFlowOverrides(newOverrides);
+                      handleSettingsChange('universeExcerptFlow', newOverrides);
+                    }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                      currentFlow === opt.value
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -607,6 +710,7 @@ export function TypingPractice() {
             text={selectedText.text}
             currentIndex={currentIndex}
             typedChars={typedChars}
+            cursorStyle={cursorStyle}
           />
 
           {/* Start hint */}
@@ -632,9 +736,16 @@ export function TypingPractice() {
       </div>
 
       {/* Footer */}
-      <footer className="px-6 py-2 border-t border-gray-800 flex items-center justify-center gap-4 text-[11px] text-gray-600">
+      <footer className="px-6 py-2 border-t border-gray-800 flex items-center justify-center gap-3 text-[11px] text-gray-600 flex-wrap">
         <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Tab</kbd> next</span>
         <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Esc</kbd> restart</span>
+        <span className="text-gray-700">|</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+R</kbd> restart</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+N</kbd> next</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+S</kbd> settings</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+K</kbd> keyboard</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+M</kbd> mute</span>
+        <span><kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px]">Alt+C</kbd> cursor</span>
       </footer>
 
       {/* Stats Panel Modal */}

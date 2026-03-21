@@ -175,10 +175,8 @@ export function VirtualKeyboard({
           {KEYBOARD_ROWS[3].map((key, i) => renderKey(key, i))}
           {renderKey('Shift', 105, 'Shift-R')}
         </div>
-        <div className="flex gap-1 items-center">
-          <div className="w-16 sm:w-20" />
+        <div className="flex gap-1 justify-center">
           {renderKey('Space', 106)}
-          <div className="w-16 sm:w-20" />
         </div>
       </div>
     </div>

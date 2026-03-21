@@ -74,6 +74,9 @@ export interface UserSettings {
   enableBackspace: boolean;
   scale: string;
   chordProgression: string;
+  cursorStyle: 'line' | 'underline';
+  /** Per-universe excerpt flow override: sequential, random, chapter */
+  universeExcerptFlow: Record<string, string>;
 }
 
 export interface UserData {
@@ -120,6 +123,8 @@ const DEFAULT_USER_DATA: UserData = {
     enableBackspace: true,
     scale: 'C Major Pentatonic',
     chordProgression: 'pop',
+    cursorStyle: 'line',
+    universeExcerptFlow: {},
   },
   activeUniverseId: BUILT_IN_UNIVERSE_IDS.GENERAL,
   universeProgress: {},

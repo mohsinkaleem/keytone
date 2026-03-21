@@ -4,12 +4,14 @@ interface TextDisplayProps {
   text: string;
   currentIndex: number;
   typedChars: Array<{ char: string; correct: boolean }>;
+  cursorStyle?: 'line' | 'underline';
 }
 
 export function TextDisplay({
   text,
   currentIndex,
   typedChars,
+  cursorStyle = 'line',
 }: TextDisplayProps) {
   const currentCharRef = useRef<HTMLSpanElement>(null);
   const [recentError, setRecentError] = useState<number | null>(null);
@@ -36,10 +38,10 @@ export function TextDisplay({
 
   return (
     <div 
-      className="relative p-6 md:p-8 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-48 max-h-96 overflow-y-auto"
+      className="relative p-8 md:p-10 bg-gray-900/90 backdrop-blur-md rounded-3xl border border-gray-700/50 overflow-hidden shadow-2xl shadow-indigo-500/10 min-h-56 max-h-[28rem] overflow-y-auto"
     >
       {/* Text container - responsive sizing with word wrapping */}
-      <div className="font-mono text-xl md:text-2xl leading-relaxed tracking-wide select-none">
+      <div className="font-mono text-2xl md:text-3xl leading-loose tracking-wide select-none text-center">
         {text.split(/(\s+)/).map((part, partIndex, parts) => {
           // Calculate the starting global index for this part
           const startIndex = parts.slice(0, partIndex).join('').length;
@@ -96,12 +98,15 @@ export function TextDisplay({
                     
                     {displayChar}
                     
-                    {/* Current character cursor - enhanced */}
-                    {isCurrent && (
+                    {/* Current character cursor */}
+                    {isCurrent && cursorStyle === 'underline' && (
                       <>
                         <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-indigo-500 rounded-full animate-pulse shadow-lg shadow-indigo-500/50" />
                         <span className="absolute inset-0 bg-indigo-500/10 rounded -mx-0.5" />
                       </>
+                    )}
+                    {isCurrent && cursorStyle === 'line' && (
+                      <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-400 rounded-full animate-pulse shadow-lg shadow-indigo-400/60" />
                     )}
                     
                     {/* Show what was typed incorrectly - improved visibility */}

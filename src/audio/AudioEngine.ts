@@ -64,16 +64,6 @@ const THEME_CONFIGS: Record<SoundTheme, ThemeConfig> = {
     harmonics: [1, 2.4, 3, 4.5, 5.6],
     harmonicGains: [1, 0.6, 0.4, 0.25, 0.2],
   },
-  strings: {
-    waveform: 'sawtooth',
-    adsr: { attack: 0.15, decay: 0.2, sustain: 0.6, release: 0.4 },
-    harmonics: [1, 2, 3],
-    harmonicGains: [1, 0.6, 0.3],
-    filterFreq: 3000,
-    filterQ: 2,
-    filterType: 'lowpass',
-    detune: 3,
-  },
   typewriter: {
     waveform: 'square',
     adsr: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.03 },
@@ -83,15 +73,24 @@ const THEME_CONFIGS: Record<SoundTheme, ThemeConfig> = {
     filterQ: 4,
     filterType: 'bandpass',
   },
+  strings: {
+    waveform: 'sawtooth',
+    adsr: { attack: 0.2, decay: 0.1, sustain: 0.6, release: 0.4 },
+    harmonics: [1, 2, 3, 4],
+    harmonicGains: [1, 0.5, 0.3, 0.2],
+    filterFreq: 1500,
+    filterQ: 1,
+    filterType: 'lowpass',
+  },
 };
 
 export const SOUND_THEMES: { value: SoundTheme; label: string; icon: string }[] = [
   { value: 'piano', label: 'Piano', icon: '🎹' },
   { value: 'synth', label: 'Synth', icon: '🎛️' },
   { value: 'retro', label: 'Retro', icon: '👾' },
+  { value: 'strings', label: 'Strings', icon: '🎻' },
   { value: 'marimba', label: 'Marimba', icon: '🥁' },
   { value: 'bells', label: 'Bells', icon: '🔔' },
-  { value: 'strings', label: 'Strings', icon: '🎻' },
   { value: 'typewriter', label: 'Typewriter', icon: '⌨️' },
 ];
 

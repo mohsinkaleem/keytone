@@ -10,6 +10,10 @@
 import { useState, useRef, useCallback } from 'react';
 import type { UniverseType, Excerpt } from '../types/universe';
 import { chunkText, estimateDifficulty, generateTitle, parseTextFile, parseEpubChapters } from '../utils/ingestion';
+import { parseQuranText } from '../utils/ingestion/quranParser';
+import { parseLineByLine, parseJsonText } from '../utils/ingestion/genericParsers';
+
+type ParserType = 'auto' | 'plain' | 'quran' | 'line-by-line' | 'json';
 
 interface UniverseCreationModalProps {
   onSave: (universe: {
@@ -43,14 +47,32 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [parserType, setParserType] = useState<ParserType>('auto');
+  const [jsonTextField, setJsonTextField] = useState('text');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Build excerpts reactively from textContent + chunkSize
-  // (if chapter-aware data exists we use that directly)
+  // Build excerpts reactively from textContent + chunkSize + parserType
   const excerpts = useCallback((): Omit<Excerpt, 'id'>[] => {
     if (chapterExcerpts) return chapterExcerpts;
     if (!textContent.trim()) return [];
+
+    // Use parser-specific logic
+    if (parserType === 'quran') {
+      return parseQuranText(textContent, { excerptLength: chunkSize });
+    }
+    if (parserType === 'line-by-line') {
+      return parseLineByLine(textContent, { minLength: 20, maxLength: chunkSize });
+    }
+    if (parserType === 'json') {
+      try {
+        return parseJsonText(textContent, { textField: jsonTextField, maxLength: chunkSize });
+      } catch {
+        return [];
+      }
+    }
+
+    // Auto / plain: default chunking
     const chunks = chunkText(textContent, {
       maxLength: chunkSize,
       minLength: Math.max(50, chunkSize * 0.2),
@@ -62,7 +84,7 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
       difficulty: estimateDifficulty(chunk),
       order: index,
     }));
-  }, [textContent, chunkSize, chapterExcerpts]);
+  }, [textContent, chunkSize, chapterExcerpts, parserType, jsonTextField]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,6 +122,10 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
         }
         // Auto-detect type
         setType('novel');
+      } else if (file.name.endsWith('.json')) {
+        const raw = await file.text();
+        setTextContent(raw);
+        setParserType('json');
       } else {
         const raw = await file.text();
         const text = parseTextFile(raw);
@@ -112,7 +138,7 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
 
       // Auto-fill name from filename if empty
       if (!name) {
-        const base = file.name.replace(/\.(txt|md|markdown|epub)$/i, '').replace(/[_-]/g, ' ');
+        const base = file.name.replace(/\.(txt|md|markdown|epub|json)$/i, '').replace(/[_-]/g, ' ');
         setName(base.charAt(0).toUpperCase() + base.slice(1));
       }
     } catch (err) {
@@ -211,7 +237,43 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
             </div>
           </div>
 
-          {/* Row 4: Content */}
+          {/* Row 4: Parser */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Parser Format</label>
+            <div className="flex gap-2 flex-wrap">
+              {([
+                { value: 'auto' as ParserType, label: 'Auto-detect', hint: 'Smart chunking' },
+                { value: 'quran' as ParserType, label: 'Quran', hint: 'Verse-aware' },
+                { value: 'line-by-line' as ParserType, label: 'Line-by-Line', hint: 'Each line = excerpt' },
+                { value: 'json' as ParserType, label: 'JSON', hint: 'Structured data' },
+              ]).map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => { setParserType(p.value); setChapterExcerpts(null); }}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                    parserType === p.value ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  }`}
+                >
+                  <span>{p.label}</span>
+                  <span className="block text-[10px] opacity-70 mt-0.5">{p.hint}</span>
+                </button>
+              ))}
+            </div>
+            {parserType === 'json' && (
+              <div className="mt-2">
+                <label className="block text-[10px] text-gray-500 mb-1">Text field path (dot-separated, e.g. "content" or "verse.text")</label>
+                <input
+                  type="text"
+                  value={jsonTextField}
+                  onChange={(e) => setJsonTextField(e.target.value)}
+                  placeholder="text"
+                  className="w-48 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:border-indigo-500 outline-none font-mono"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Row 5: Content */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <button
@@ -222,12 +284,12 @@ export function UniverseCreationModal({ onSave, onClose }: UniverseCreationModal
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                {parsing ? 'Reading file...' : 'Upload (.txt, .epub, .md)'}
+                {parsing ? 'Reading file...' : 'Upload (.txt, .epub, .md, .json)'}
               </button>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.epub,.md,.markdown"
+                accept=".txt,.epub,.md,.markdown,.json"
                 onChange={handleFileUpload}
                 className="hidden"
               />
